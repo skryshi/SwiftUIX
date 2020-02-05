@@ -32,7 +32,7 @@ private struct KeyboardAvoiding: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.bottom, keyboardHeight)
-            .animation(.spring())
+            .animation(isActive ? .easeOut(duration: 0.3) : nil)
             .onReceive(keyBoardHeightPublisher, perform: { self.keyboardHeight = $0 })
             .edgesIgnoringSafeArea(isActive ? [.bottom] : [])
     }
