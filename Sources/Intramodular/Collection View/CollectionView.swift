@@ -8,102 +8,149 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
-public struct CollectionView<SelectionValue: Hashable, Content: View>: View {
-    struct Index: Identifiable {
-        var value: IndexPath
-        
-        init(_ value: IndexPath) {
-            self.value = value
-        }
-        
-        var id: Int {
-            return value.hashValue
-        }
+public struct CollectionView<SectionModel: Identifiable, Item: Identifiable, Data: RandomAccessCollection, SectionHeader: View, SectionFooter: View, RowContent: View>: UIViewControllerRepresentable where Data.Element == ListSection<SectionModel, Item> {
+    public typealias Offset = ScrollView<AnyView>.ContentOffset
+    public typealias UIViewControllerType = UIHostingCollectionViewController<SectionModel, Item, Data, SectionHeader, SectionFooter, RowContent>
+    
+    private let data: Data
+    private let sectionHeader: (SectionModel) -> SectionHeader
+    private let sectionFooter: (SectionModel) -> SectionFooter
+    private let rowContent: (Item) -> RowContent
+    
+    private var scrollViewConfiguration = CocoaScrollViewConfiguration<AnyView>()
+    
+    @Environment(\.collectionViewLayout) var collectionViewLayout
+    @Environment(\.initialContentAlignment) var initialContentAlignment
+    @Environment(\.isScrollEnabled) var isScrollEnabled
+    
+    public init(
+        _ data: Data,
+        sectionHeader: @escaping (SectionModel) -> SectionHeader,
+        sectionFooter: @escaping (SectionModel) -> SectionFooter,
+        rowContent: @escaping (Item) -> RowContent
+    ) {
+        self.data = data
+        self.sectionHeader = sectionHeader
+        self.sectionFooter = sectionFooter
+        self.rowContent = rowContent
     }
     
-    private let numberOfSections: Int
-    private let numberOfRowsForSection: (Int) -> Int
-    private let layout: CollectionViewLayout
-    private let makeCellView: (Index) -> AnyView
-    private let selection: Binding<Set<SelectionValue>>?
-    
-    var indices: [Index] {
-        return (0..<numberOfSections).flatMap { section in
-            (0..<numberOfRowsForSection(section)).map { row in
-                Index(IndexPath(row: row, section: section ))
-            }
-        }
-    }
-    
-    public var body: some View {
-        _CollectionView<[Index], AnyView>.init(
-            data: indices,
-            collectionViewLayout: layout._toUICollectionViewLayout(),
-            makeCellView: makeCellView
+    public func makeUIViewController(context: Context) -> UIViewControllerType {
+        .init(
+            data,
+            collectionViewLayout: collectionViewLayout._toUICollectionViewLayout(),
+            sectionHeader: sectionHeader,
+            sectionFooter: sectionFooter,
+            rowContent: rowContent
         )
+    }
+    
+    public func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
+        uiViewController.data = data
+        uiViewController.sectionHeader = sectionHeader
+        uiViewController.sectionFooter = sectionFooter
+        uiViewController.rowContent = rowContent
+        
+        uiViewController.collectionView.isScrollEnabled = isScrollEnabled
+        
+        uiViewController.collectionView.configure(with: scrollViewConfiguration)
+        
+        let newCollectionViewLayout = collectionViewLayout._toUICollectionViewLayout()
+        
+        if uiViewController.collectionViewLayout !== newCollectionViewLayout, uiViewController.collectionViewLayout != newCollectionViewLayout {
+            uiViewController.collectionView.setCollectionViewLayout(newCollectionViewLayout, animated: true)
+        }
+        
+        uiViewController.reloadData()
     }
 }
 
 extension CollectionView {
-    fileprivate init<Data: RandomAccessCollection, RowContent: View>(
-        layout: CollectionViewLayout = CollectionViewFlowLayout(),
-        data: Data,
-        selection: Binding<Set<SelectionValue>>? = nil,
-        @ViewBuilder _rowContent: @escaping (Data.Element) -> RowContent
-    ) where Data.Element: Identifiable {
-        self.numberOfSections = 1
-        self.numberOfRowsForSection = { _ in data.count }
-        self.layout = layout
-        self.selection = selection
-        self.makeCellView = { index in
-            let elementIndex = data.index(data.startIndex, offsetBy: index.value.item)
-            
-            return _rowContent(data[elementIndex]).eraseToAnyView()
-        }
+    public init<_Item: Hashable>(
+        _ data: Data,
+        sectionHeader: @escaping (SectionModel) -> SectionHeader,
+        sectionFooter: @escaping (SectionModel) -> SectionFooter,
+        rowContent: @escaping (_Item) -> RowContent
+    ) where Item == HashIdentifiableValue<_Item> {
+        self.data = data
+        self.sectionHeader = sectionHeader
+        self.sectionFooter = sectionFooter
+        self.rowContent = { rowContent($0.value) }
     }
     
-    public init<Data: RandomAccessCollection, RowContent: View>(
-        layout: CollectionViewLayout = CollectionViewFlowLayout(),
-        data: Data,
-        selection: Binding<Set<SelectionValue>>? = nil,
-        @ViewBuilder rowContent: @escaping (Data.Element) -> RowContent
-    ) where Content == ForEach<Data, Data.Element.ID, HStack<RowContent>>, Data.Element: Identifiable {
-        self.numberOfSections = 1
-        self.numberOfRowsForSection = { _ in data.count }
-        self.layout = layout
-        self.selection = selection
-        self.makeCellView = { index in
-            let elementIndex = data.index(data.startIndex, offsetBy: index.value.item)
-            
-            return rowContent(data[elementIndex]).eraseToAnyView()
-        }
+    public init<_SectionModel: Hashable, _Item: Hashable>(
+        _ data: Data,
+        sectionHeader: @escaping (_SectionModel) -> SectionHeader,
+        sectionFooter: @escaping (_SectionModel) -> SectionFooter,
+        rowContent: @escaping (_Item) -> RowContent
+    ) where SectionModel == HashIdentifiableValue<_SectionModel>, Item == HashIdentifiableValue<_Item> {
+        self.data = data
+        self.sectionHeader = { sectionHeader($0.value) }
+        self.sectionFooter = { sectionFooter($0.value) }
+        self.rowContent = { rowContent($0.value) }
+    }
+    
+    public init<_SectionModel: Hashable, _Item: Hashable>(
+        _ data: [ListSection<_SectionModel, _Item>],
+        sectionHeader: @escaping (_SectionModel) -> SectionHeader,
+        sectionFooter: @escaping (_SectionModel) -> SectionFooter,
+        rowContent: @escaping (_Item) -> RowContent
+    ) where Data == Array<ListSection<SectionModel, Item>>, SectionModel == HashIdentifiableValue<_SectionModel>, Item == HashIdentifiableValue<_Item> {
+        self.data = data.map({ .init(model: .init($0.model), items: $0.items.map(HashIdentifiableValue.init)) })
+        self.sectionHeader = { sectionHeader($0.value) }
+        self.sectionFooter = { sectionFooter($0.value) }
+        self.rowContent = { rowContent($0.value) }
     }
 }
 
-extension CollectionView where SelectionValue == Never {
-    private struct ViewListIndex: Identifiable {
-        var id: Int
-    }
-    
-    public init(
-        layout: CollectionViewLayout = CollectionViewFlowLayout(),
-        @ViewBuilder _ content: () -> Content
-    ) {
-        let viewList = (content() as? ViewListMaker)?.makeViewList() ?? [content().eraseToAnyView()]
+extension CollectionView where Data: RangeReplaceableCollection, SectionModel == Never, SectionHeader == Never, SectionFooter == Never {
+    public init<Items: RandomAccessCollection>(
+        _ items: Items,
+        @ViewBuilder rowContent: @escaping (Item) -> RowContent
+    ) where Items.Element == Item {
+        var data = Data.init()
+        
+        data.append(.init(items: items))
         
         self.init(
-            layout: layout,
-            data: viewList.indices.map(ViewListIndex.init),
-            _rowContent: { viewList[$0.id] }
+            data,
+            sectionHeader: Never.produce,
+            sectionFooter: Never.produce,
+            rowContent: rowContent
         )
     }
+}
+
+extension CollectionView where Data == Array<ListSection<SectionModel, Item>>, SectionModel == Never, SectionHeader == Never, SectionFooter == Never {
+    public init<Items: RandomAccessCollection>(
+        _ items: Items,
+        @ViewBuilder rowContent: @escaping (Item) -> RowContent
+    ) where Items.Element == Item {
+        self.init(
+            [.init(items: items)],
+            sectionHeader: Never.produce,
+            sectionFooter: Never.produce,
+            rowContent: rowContent
+        )
+    }
+}
+
+// MARK: - API -
+
+extension CollectionView {
+    public func onOffsetChange(_ body: @escaping (Offset) -> ()) -> Self {
+        then({ $0.scrollViewConfiguration.onOffsetChange = body })
+    }
+}
+
+@available(tvOS, unavailable)
+extension CollectionView {
+    public func onRefresh(_ body: @escaping () -> Void) -> Self {
+        then({ $0.scrollViewConfiguration.onRefresh = body })
+    }
     
-    public init<Data: RandomAccessCollection, RowContent: View>(
-        layout: CollectionViewLayout = CollectionViewFlowLayout(),
-        data: Data,
-        @ViewBuilder rowContent: @escaping (Data.Element) -> RowContent
-    ) where Content == ForEach<Data, Data.Element.ID, HStack<RowContent>>, Data.Element: Identifiable {
-        self.init(layout: layout, data: data, selection: nil, rowContent: rowContent)
+    public func isRefreshing(_ isRefreshing: Bool) -> Self {
+        then({ $0.scrollViewConfiguration.isRefreshing = isRefreshing })
     }
 }
 

@@ -21,13 +21,12 @@ public struct DelayedState<Value>: DynamicProperty {
         }
     }
     
-    /// Initialize with the provided initial value.
-    public init(wrappedValue value: Value) {
-        self.__wrappedValue = .init(initialValue: value)
-    }
-    
-    public mutating func update() {
-        self.__wrappedValue.update()
+    public var unsafelyUnwrapped: Value {
+        get {
+            _wrappedValue
+        } nonmutating set {
+            _wrappedValue = newValue
+        }
     }
     
     /// The binding value, as "unwrapped" by accessing `$foo` on a `@Binding` property.
@@ -36,5 +35,14 @@ public struct DelayedState<Value>: DynamicProperty {
             get: { self.wrappedValue },
             set: { self.wrappedValue = $0 }
         )
+    }
+    
+    /// Initialize with the provided initial value.
+    public init(wrappedValue value: Value) {
+        self.__wrappedValue = .init(initialValue: value)
+    }
+    
+    public mutating func update() {
+        self.__wrappedValue.update()
     }
 }

@@ -34,12 +34,6 @@ open class UIHostingView<Content: View>: UIView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    override open func layoutSubviews() {
-        super.layoutSubviews()
-        
-        rootViewHostingController.view.frame = bounds
-    }
-    
     override open func sizeThatFits(_ size: CGSize) -> CGSize {
         rootViewHostingController.sizeThatFits(in: size)
     }
@@ -54,6 +48,20 @@ open class UIHostingView<Content: View>: UIView {
         verticalFittingPriority: UILayoutPriority
     ) -> CGSize {
         rootViewHostingController.sizeThatFits(in: targetSize)
+    }
+    
+    override open func layoutSubviews() {
+        super.layoutSubviews()
+        
+        rootViewHostingController.view.frame = bounds
+    }
+    
+    override open func sizeToFit() {
+        if let superview = superview {
+            frame.size = rootViewHostingController.sizeThatFits(in: superview.frame.size)
+        } else {
+            super.sizeToFit()
+        }
     }
 }
 

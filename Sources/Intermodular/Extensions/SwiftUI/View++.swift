@@ -111,16 +111,43 @@ extension View {
 }
 
 extension View {
-    @inlinable
-    public func frame(_ size: CGSize, alignment: Alignment = .center) -> some View {
-        frame(width: size.width, height: size.height, alignment: alignment)
+    public func frame(minimum dimensionLength: CGFloat, axis: Axis) -> some View {
+        switch axis {
+            case .horizontal:
+                return frame(minWidth: dimensionLength)
+            case .vertical:
+                return frame(minWidth: dimensionLength)
+        }
     }
     
+    /// Positions this view within an invisible frame with the specified size.
+    ///
+    /// Use this method to specify a fixed size for a view's width,
+    /// height, or both. If you only specify one of the dimensions, the
+    /// resulting view assumes this view's sizing behavior in the other
+    /// dimension.
+    @inlinable
+    public func frame(_ size: CGSize?, alignment: Alignment = .center) -> some View {
+        frame(width: size?.width, height: size?.height, alignment: alignment)
+    }
+    
+    /// Positions this view within an invisible frame with the specified size.
+    ///
+    /// Use this method to specify a fixed size for a view's width,
+    /// height, or both. If you only specify one of the dimensions, the
+    /// resulting view assumes this view's sizing behavior in the other
+    /// dimension.
     @inlinable
     public func frame(minimum size: CGSize?, alignment: Alignment = .center) -> some View {
         frame(minWidth: size?.width, minHeight: size?.height, alignment: alignment)
     }
     
+    /// Positions this view within an invisible frame with the specified size.
+    ///
+    /// Use this method to specify a fixed size for a view's width,
+    /// height, or both. If you only specify one of the dimensions, the
+    /// resulting view assumes this view's sizing behavior in the other
+    /// dimension.
     @inlinable
     public func frame(
         minimum minSize: CGSize?,
@@ -134,6 +161,34 @@ extension View {
             maxHeight: maxSize?.height,
             alignment: alignment
         )
+    }
+    
+    @inlinable
+    public func frameZeroClipped(_ isZeroClipped: Bool = true) -> some View {
+        frame(isZeroClipped ? CGSize.zero : nil)
+            .clipped()
+    }
+}
+
+extension View {
+    public func width(_ width: CGFloat?) -> some View {
+        frame(width: width)
+    }
+    
+    public func height(_ height: CGFloat?) -> some View {
+        frame(height: height)
+    }
+    
+    public func maxWidth(_ width: CGFloat?) -> some View {
+        frame(maxWidth: width)
+    }
+    
+    public func maxHeight(_ height: CGFloat?) -> some View {
+        frame(maxHeight: height)
+    }
+    
+    public func square(_ sideLength: CGFloat?) -> some View {
+        frame(width: sideLength, height: sideLength)
     }
 }
 

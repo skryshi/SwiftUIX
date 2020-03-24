@@ -7,147 +7,125 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
-public class CocoaPresentationCoordinator: NSObject {
-    private let presentation: CocoaPresentation?
+@objc public class CocoaPresentationCoordinator: NSObject, ObservableObject {
+    public var environmentBuilder = EnvironmentBuilder()
     
-    public private(set) weak var presentingCoordinator: CocoaPresentationCoordinator?
-    public private(set) var presentedCoordinator: CocoaPresentationCoordinator?
+    private let presentation: AnyModalPresentation?
     
-    var topMostCoordinator: CocoaPresentationCoordinator {
-        var coordinator = self
-        
-        while let nextCoordinator = coordinator.presentedCoordinator {
-            coordinator = nextCoordinator
+    public var presentingCoordinator: CocoaPresentationCoordinator? {
+        if let presentingViewController = viewController.presentingViewController {
+            return presentingViewController.presentationCoordinator
+        } else if let navigationController = viewController.navigationController {
+            return navigationController.viewController(before: viewController)?.presentationCoordinator
+        } else {
+            return nil
         }
-        
-        return coordinator
     }
     
-    var topMostPresentedCoordinator: CocoaPresentationCoordinator? {
-        presentedCoordinator?.topMostCoordinator
+    public var presentedCoordinator: CocoaPresentationCoordinator? {
+        if let presentedViewController = viewController.presentedViewController {
+            return presentedViewController.presentationCoordinator
+        } else if let navigationController = viewController.navigationController {
+            return navigationController.viewController(after: viewController)?.presentationCoordinator
+        } else {
+            return nil
+        }
     }
     
-    var onDidAttemptToDismiss: [CocoaPresentation.DidAttemptToDismissCallback] = []
     var transitioningDelegate: UIViewControllerTransitioningDelegate?
     
-    weak var viewController: UIViewController?
+    private weak var viewController: UIViewController!
     
-    override init() {
-        self.presentation = nil
-        self.presentingCoordinator = nil
-        
-        super.init()
-        
-        self.presentingCoordinator = self
-    }
-    
-    init(
-        presentation: CocoaPresentation? = nil,
-        presentingCoordinator: CocoaPresentationCoordinator? = nil
+    public init(
+        presentation: AnyModalPresentation? = nil,
+        viewController: UIViewController? = nil
     ) {
         self.presentation = presentation
-        self.presentingCoordinator = presentingCoordinator
+        self.viewController = viewController
     }
     
-    func present(
-        _ presentation: CocoaPresentation,
-        animated: Bool = true,
-        completion: (() -> Void)? = nil
-    ) {
-        if let viewController = viewController?.presentedViewController as? CocoaHostingController<AnyPresentationView>, viewController.modalViewPresentationStyle == presentation.style {
-            viewController.rootView.content = presentation.content()
-            return
+    func setViewController(_ viewController: UIViewController) {
+        guard self.viewController == nil else {
+            return assertionFailure()
         }
         
-        let presentationCoordinator = CocoaPresentationCoordinator(
-            presentation: presentation,
-            presentingCoordinator: self
-        )
-        
-        let viewControllerToBePresented = CocoaHostingController(
-            presentation: presentation,
-            presentationCoordinator: presentationCoordinator
-        )
-        
-        presentedCoordinator = presentationCoordinator
-        
-        viewControllerToBePresented.presentationController?.delegate = presentationCoordinator
-        
-        self.viewController?.present(
-            viewControllerToBePresented,
-            animated: animated,
-            completion: completion
-        )
+        self.viewController = viewController
+    }
+    
+    func setIsInPresentation(_ isActive: Bool) {
+        viewController.isModalInPresentation = isActive
+    }
+}
+
+extension CocoaPresentationCoordinator {
+    public override var description: String {
+        if let name = presentedViewName {
+            return "Bridged Presentation Coordinator (" + name.description + ")"
+        } else {
+            return "Bridged Presentation Coordinator"
+        }
     }
 }
 
 // MARK: - Protocol Implementations -
 
 extension CocoaPresentationCoordinator: DynamicViewPresenter {
-    public var presenting: DynamicViewPresenter? {
+    public var presenter: DynamicViewPresenter? {
         presentingCoordinator
     }
     
-    public var presented: DynamicViewPresenter? {
+    public var presented: DynamicViewPresentable? {
         presentedCoordinator
     }
     
-    public var isPresented: Bool {
-        return presentedCoordinator != nil
-    }
-    
     public var presentedViewName: ViewName? {
-        presentedCoordinator?.presentation?.contentName ?? (viewController as? opaque_CocoaController)?.rootViewName
+        presentedCoordinator?.presentation?.content.opaque_getViewName()
     }
     
-    public func present<V: View>(
-        _ view: V,
-        named viewName: ViewName? = nil,
-        onDismiss: (() -> Void)?,
-        style: ModalViewPresentationStyle,
-        completion: (() -> Void)?
-    ) {
-        topMostCoordinator.present(CocoaPresentation(
-            content: { view },
-            contentName: viewName,
-            shouldDismiss: { true },
-            onDismiss: onDismiss,
-            resetBinding: { },
-            style: style,
-            environment: nil
-        ), completion: completion)
-    }
-    
-    public func dismiss(completion: (() -> Void)? = nil) {
-        guard
-            let viewController = viewController,
-            let presentedCoordinator = presentedCoordinator,
-            let presentation = presentedCoordinator.presentation,
-            viewController.presentedViewController != nil,
-            presentation.shouldDismiss() else {
-                return
+    public func present(_ modal: AnyModalPresentation) {
+        if let viewController = viewController.presentedViewController as? CocoaPresentationHostingController, viewController.modalViewPresentationStyle == modal.content.presentationStyle {
+            viewController.rootView.content.presentation = modal
+            return
         }
         
-        viewController.dismiss(animated: true) {
-            presentation.onDismiss?()
-            self.presentedCoordinator = nil
-            completion?()
-        }
-    }
-        
-    public func dismissView(
-        named name: ViewName,
-        completion: (() -> Void)? = nil
-    ) {
-        var coordinator: CocoaPresentationCoordinator? = presentingCoordinator ?? self
-        
-        while let presentedCoordinator = coordinator {
-            if presentedCoordinator.presentedViewName == name {
-                presentedCoordinator.dismiss(completion: completion)
-                break
-            }
+        viewController.present(
+            CocoaPresentationHostingController(
+                presentation: modal,
+                coordinator: .init(presentation: modal)
+            ),
+            animated: modal.content.isModalPresentationAnimated
+        ) {
+            modal.content.onPresent()
             
-            coordinator = coordinator?.presentedCoordinator
+            self.objectWillChange.send()
+        }
+    }
+    
+    public func dismiss(animated: Bool, completion: (() -> Void)?) {
+        guard isPresenting else {
+            return
+        }
+        
+        guard let viewController = viewController else {
+            return
+        }
+        
+        if let presentation = presentation, !presentation.content.isModalDismissable {
+            return
+        }
+        
+        if viewController.presentedViewController != nil {
+            viewController.dismiss(animated: animated) {
+                self.presentation?.content.onDismiss()
+                
+                completion?()
+            }
+        } else if let navigationController = viewController.navigationController {
+            navigationController.popToViewController(viewController, animated: animated) {
+                self.presentation?.content.onDismiss()
+                
+                completion?()
+            }
         }
     }
 }
@@ -155,30 +133,42 @@ extension CocoaPresentationCoordinator: DynamicViewPresenter {
 extension CocoaPresentationCoordinator: UIAdaptivePresentationControllerDelegate {
     public func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle {
         if let presentation = presentation {
-            return .init(presentation.style)
+            return .init(presentation.content.presentationStyle)
         } else {
             return .automatic
         }
     }
     
     public func presentationControllerShouldDismiss(_ presentationController: UIPresentationController) -> Bool {
-        presentation?.shouldDismiss() ?? true
-    }
-    
-    public func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
-        for callback in onDidAttemptToDismiss {
-            callback.action()
-        }
+        presentation?.content.isModalDismissable ?? true
     }
     
     public func presentationControllerWillDismiss(_ presentationController: UIPresentationController) {
-        
+        objectWillChange.send()
     }
     
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        presentation?.onDismiss?()
+        presentation?.content.onDismiss()
         
-        presentingCoordinator?.presentedCoordinator = nil
+        presentationController.presentingViewController.presentationCoordinator.objectWillChange.send()
+    }
+}
+
+// MARK: - Helpers -
+
+extension CocoaPresentationCoordinator {
+    struct EnvironmentKey: SwiftUI.EnvironmentKey {
+        static let defaultValue: CocoaPresentationCoordinator? = nil
+    }
+}
+
+extension EnvironmentValues {
+    public var cocoaPresentationCoordinator: CocoaPresentationCoordinator? {
+        get {
+            self[CocoaPresentationCoordinator.EnvironmentKey]
+        } set {
+            self[CocoaPresentationCoordinator.EnvironmentKey] = newValue
+        }
     }
 }
 

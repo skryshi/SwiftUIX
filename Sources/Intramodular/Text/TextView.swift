@@ -30,10 +30,12 @@ public struct TextView<Label: View>: View {
 }
 
 fileprivate struct _TextView {
-    @Binding var text: String
+    @Binding private var text: String
     
-    var onEditingChanged: (Bool) -> Void
-    var onCommit: () -> Void
+    private var onEditingChanged: (Bool) -> Void
+    private var onCommit: () -> Void
+    
+    @Environment(\.isScrollEnabled) private var isScrollEnabled
     
     init(
         text: Binding<String>,
@@ -84,8 +86,6 @@ extension _TextView: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             view.text = textView.text
-            
-            view.onEditingChanged(true)
         }
         
         func textViewDidEndEditing(_ textView: UITextView) {
@@ -99,30 +99,35 @@ extension _TextView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> _UITextView {
-        let view = _UITextView()
-        
-        view.backgroundColor = nil
-        view.isSelectable = true
-        view.text = text
-        
-        if let font = context.environment.font {
-            view.font = font.toUIFont()
-        } else {
-            view.font = .preferredFont(forTextStyle: .body)
+        _UITextView().then {
+            $0.delegate = context.coordinator
         }
-        
-        view.textContainerInset = .zero
-        view.delegate = context.coordinator
-        
-        return view
     }
     
-    func updateUIView(_ textView: _UITextView, context: Context) {
-        if let font = context.environment.font, font.toUIFont() != textView.font {
-            textView.font = font.toUIFont()
+    func updateUIView(_ uiView: UIViewType, context: Context) {
+        var cursorOffset: Int?
+        
+        // Record the current cursor offset.
+        if let selectedRange = uiView.selectedTextRange {
+            cursorOffset = uiView.offset(from: uiView.beginningOfDocument, to: selectedRange.start)
         }
         
-        textView.text = text
+        if let font = context.environment.font {
+            uiView.font = font.toUIFont()
+        } else {
+            uiView.font = .preferredFont(forTextStyle: .body)
+        }
+        
+        uiView.backgroundColor = nil
+        uiView.isScrollEnabled = isScrollEnabled
+        uiView.isSelectable = true
+        uiView.text = text
+        uiView.textContainerInset = .zero
+        
+        // Reset the cursor offset if possible.
+        if let cursorOffset = cursorOffset, let position = uiView.position(from: uiView.beginningOfDocument, offset: cursorOffset), let textRange = uiView.textRange(from: position, to: position) {
+            uiView.selectedTextRange = textRange
+        }
     }
 }
 
@@ -150,10 +155,6 @@ extension _TextView: NSViewRepresentable {
         }
         
         func textDidBeginEditing(_ notification: Notification) {
-            view.onEditingChanged(true)
-        }
-        
-        func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else {
                 return
             }
@@ -163,8 +164,17 @@ extension _TextView: NSViewRepresentable {
             view.onEditingChanged(true)
         }
         
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else {
+                return
+            }
+            
+            view.text = textView.string
+        }
+        
         func textDidEndEditing(_ notification: Notification) {
-            view.onEditingChanged(true)
+            view.onEditingChanged(false)
+            view.onCommit()
         }
     }
     
@@ -173,18 +183,18 @@ extension _TextView: NSViewRepresentable {
     }
     
     func makeNSView(context: Context) -> NSViewType {
-        let view = _NSTextView()
+        let nsView = _NSTextView()
         
-        view.backgroundColor = .clear
-        view.string = text
-        view.textContainerInset = .zero
-        view.delegate = context.coordinator
+        nsView.delegate = context.coordinator
         
-        return view
+        nsView.backgroundColor = .clear
+        nsView.textContainerInset = .zero
+        
+        return nsView
     }
     
-    func updateNSView(_ textView: NSViewType, context: Context) {
-        
+    func updateNSView(_ nsView: NSViewType, context: Context) {
+        nsView.string = text
     }
 }
 

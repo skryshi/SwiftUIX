@@ -23,6 +23,7 @@ public typealias AppKitOrUIKitLayoutGuide = NSLayoutGuide
 public typealias AppKitOrUIKitLayoutPriority = NSLayoutConstraint.Priority
 public typealias AppKitOrUIKitResponder = NSResponder
 public typealias AppKitOrUIKitTableView = NSTableView
+public typealias AppKitOrUIKitTextView = NSTextView
 public typealias AppKitOrUIKitView = NSView
 public typealias AppKitOrUIKitViewController = NSViewController
 public typealias AppKitOrUIKitWindow = NSWindow
@@ -56,9 +57,19 @@ public typealias AppKitOrUIKitResponder = UIResponder
 public typealias AppKitOrUIKitTableView = UITableView
 public typealias AppKitOrUIKitTableViewController = UITableViewController
 public typealias AppKitOrUIKitTextField = UITextField
+public typealias AppKitOrUIKitTextView = UITextView
 public typealias AppKitOrUIKitView = UIView
 public typealias AppKitOrUIKitViewController = UIViewController
 public typealias AppKitOrUIKitWindow = UIWindow
+
+#elseif os(watchOS)
+
+import UIKit
+import WatchKit
+
+public typealias AppKitOrUIKitColor = UIColor
+public typealias AppKitOrUIKitFont = UIFont
+public typealias AppKitOrUIKitImage = UIImage
 
 #endif
 

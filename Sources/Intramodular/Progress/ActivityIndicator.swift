@@ -15,6 +15,8 @@ public struct ActivityIndicator {
     private var isAnimated: Bool = true
     private var style: Style?
     
+    @Environment(\.tintColor) private var tintColor
+    
     public init() {
         
     }
@@ -33,13 +35,16 @@ extension ActivityIndicator: UIViewRepresentable {
     }
     
     public func updateUIView(_ uiView: UIViewType, context: Context) {
-        isAnimated ? uiView.startAnimating() : uiView.stopAnimating()
-        
         if let style = style {
             uiView.style = .init(style)
         }
         
-        uiView.tintColor = Color.accentColor.toUIColor()
+        if #available(iOS 13.1, *) {
+            uiView.color = tintColor?.toUIColor()
+            uiView.tintColor = tintColor?.toUIColor()
+        }
+        
+        isAnimated ? uiView.startAnimating() : uiView.stopAnimating()
     }
     
     public func animated(_ isAnimated: Bool) -> ActivityIndicator {

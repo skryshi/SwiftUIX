@@ -3,19 +3,22 @@
 
 SwiftUIX attempts to fill the gaps of the still nascent SwiftUI framework, providing an extensive suite of components, extensions and utilities to complement the standard library.
 
+Documentation is a currently a work-in-progress!
+
 # Why
 
 The goal of this project is to **complement** the SwiftUI standard library, offering hundreds of extensions and views that empower you, the developer, to build applications with the ease promised by the revolution that is SwiftUI. 
 
 This project is also **by far** the most complete port of missing UIKit/AppKit functionality, striving it to deliver in most Apple-like fashion possible.
 
-Ports include but are not limited to:
-
-- `UIActivityIndicatorView` (via `ActivityIndicator`)
-- `UIPageViewController` (via `PaginationView`)
-- `UIScrollView` (via `CocoaScrollView`)
-- `UITextField` (via `CocoaTextField`)
-- `UITextView` (via `TextView`)
+| UIKit                      | SwiftUI      | SwiftUIX                     |
+| -------------------------- | ------------ | ---------------------------- |
+| `UIActivityIndicatorView`  | -            | `ActivityIndicator`          |
+| `UIPageViewController`     | -            | `PaginationView`             |
+| `UIScrollView`             | `ScrollView` | `CocoaScrollView`            |
+| `UITableView`              | `List`       | `CocoaList`                  |
+| `UITextField`              | `TextField`  | `CocoaTextField`             |
+| `UIModalPresentationStyle` | -            | `ModalViewPresentationStyle` |
 
 # Requirements 
 

@@ -27,10 +27,14 @@ public struct DismissPresentationButton<Label: View>: View {
     }
 }
 
+#if !os(macOS)
+
 extension DismissPresentationButton where Label == Image {
     public init(action: (() -> ())? = nil) {
         self.init(action: action) {
-            Image(systemName: .xCircleFill)
+            Image(systemName: .xmarkCircleFill)
         }
     }
 }
+
+#endif

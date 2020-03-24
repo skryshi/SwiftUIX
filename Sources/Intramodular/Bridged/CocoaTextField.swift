@@ -14,34 +14,41 @@ public struct CocoaTextField<Label: View>: CocoaView {
     private var onEditingChanged: (Bool) -> Void
     private var onCommit: () -> Void
     
+    private var isInitialFirstResponder: Bool?
     private var isFirstResponder: Bool?
     
     private var autocapitalization: UITextAutocapitalizationType?
-    private var font: UIFont?
+    private var uiFont: UIFont?
     private var inputAccessoryView: AnyView?
+    private var inputView: AnyView?
     private var kerning: CGFloat?
     private var keyboardType: UIKeyboardType = .default
     private var placeholder: String?
-    private var textAlignment: TextAlignment = .leading
+    
+    @Environment(\.font) var font
     
     public var body: some View {
         return ZStack(alignment: .topLeading) {
             if placeholder == nil {
-                label.opacity(text.wrappedValue.isEmpty ? 1.0 : 0.0)
+                label
+                    .font(uiFont.map(Font.init) ?? font)
+                    .opacity(text.wrappedValue.isEmpty ? 1.0 : 0.0)
+                    .animation(nil)
             }
             
             _CocoaTextField(
                 text: text,
                 onEditingChanged: onEditingChanged,
                 onCommit: onCommit,
+                isInitialFirstResponder: isInitialFirstResponder,
                 isFirstResponder: isFirstResponder,
                 autocapitalization: autocapitalization,
-                font: font,
+                uiFont: uiFont,
                 inputAccessoryView: inputAccessoryView,
+                inputView: inputView,
                 kerning: kerning,
                 keyboardType: keyboardType,
-                placeholder: placeholder,
-                textAlignment: textAlignment
+                placeholder: placeholder
             )
         }
     }
@@ -50,28 +57,33 @@ public struct CocoaTextField<Label: View>: CocoaView {
 public struct _CocoaTextField: UIViewRepresentable {
     public typealias UIViewType = UITextField
     
+    @Environment(\.font) var font
+    @Environment(\.isEnabled) var isEnabled
+    @Environment(\.multilineTextAlignment) var multilineTextAlignment: TextAlignment
+    
     @Binding var text: String
     
     var onEditingChanged: (Bool) -> Void
     var onCommit: () -> Void
-    
-    @Environment(\.font) var environmentFont
-    
+    var isInitialFirstResponder: Bool?
     var isFirstResponder: Bool?
-    
     var autocapitalization: UITextAutocapitalizationType?
-    var font: UIFont?
+    var uiFont: UIFont?
     var inputAccessoryView: AnyView?
+    var inputView: AnyView?
     var kerning: CGFloat?
     var keyboardType: UIKeyboardType
     var placeholder: String?
-    var textAlignment: TextAlignment
     
     public class Coordinator: NSObject, UITextFieldDelegate {
         var base: _CocoaTextField
         
         init(base: _CocoaTextField) {
             self.base = base
+        }
+        
+        public func textFieldDidBeginEditing(_ textField: UITextField) {
+            base.onEditingChanged(true)
         }
         
         public func textFieldDidChangeSelection(_ textField: UITextField) {
@@ -91,7 +103,8 @@ public struct _CocoaTextField: UIViewRepresentable {
             return true
         }
         
-        public func textFieldShouldReturn(_ textField: UITextField) -> Bool {            base.onCommit()
+        public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            textField.resignFirstResponder()
             
             return true
         }
@@ -101,6 +114,12 @@ public struct _CocoaTextField: UIViewRepresentable {
         let uiView = _UITextField()
         
         uiView.delegate = context.coordinator
+        
+        if let isFirstResponder = isInitialFirstResponder, isFirstResponder {
+            DispatchQueue.main.async {
+                uiView.becomeFirstResponder()
+            }
+        }
         
         return uiView
     }
@@ -112,7 +131,7 @@ public struct _CocoaTextField: UIViewRepresentable {
             uiView.autocapitalizationType = autocapitalization
         }
         
-        uiView.font = environmentFont?.toUIFont() ?? font
+        uiView.font = uiFont ?? font?.toUIFont()
         
         if let kerning = kerning {
             uiView.defaultTextAttributes.updateValue(kerning, forKey: .kern)
@@ -129,13 +148,27 @@ public struct _CocoaTextField: UIViewRepresentable {
             uiView.inputAccessoryView = nil
         }
         
+        if let inputView = inputView {
+            if let _inputView = uiView.inputView as? UIHostingView<AnyView> {
+                _inputView.rootView = inputView
+            } else {
+                uiView.inputView = UIHostingView(rootView: inputView)
+                uiView.inputView?.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            }
+        } else {
+            uiView.inputView = nil
+        }
+        
+        uiView.isUserInteractionEnabled = isEnabled
         uiView.keyboardType = keyboardType
         
         if let placeholder = placeholder {
             uiView.attributedPlaceholder = NSAttributedString(
-                string: placeholder, attributes: [
+                string: placeholder,
+                attributes: [
+                    .font: font as Any,
                     .paragraphStyle: NSMutableParagraphStyle().then {
-                        $0.alignment = .init(textAlignment)
+                        $0.alignment = .init(multilineTextAlignment)
                     }
                 ]
             )
@@ -145,13 +178,15 @@ public struct _CocoaTextField: UIViewRepresentable {
         }
         
         uiView.text = text
-        uiView.textAlignment = .init(textAlignment)
+        uiView.textAlignment = .init(multilineTextAlignment)
         
-        if let isFirstResponder = isFirstResponder, uiView.window != nil {
-            if isFirstResponder && !uiView.isFirstResponder {
-                uiView.becomeFirstResponder()
-            } else if uiView.isFirstResponder {
-                uiView.resignFirstResponder()
+        DispatchQueue.main.async {
+            if let isFirstResponder = self.isFirstResponder, uiView.window != nil {
+                if isFirstResponder && !uiView.isFirstResponder {
+                    uiView.becomeFirstResponder()
+                } else if !isFirstResponder && uiView.isFirstResponder {
+                    uiView.resignFirstResponder()
+                }
             }
         }
     }
@@ -204,6 +239,10 @@ extension CocoaTextField where Label == Text {
 }
 
 extension CocoaTextField {
+    public func isInitialFirstResponder(_ isInitialFirstResponder: Bool) -> Self {
+        then({ $0.isInitialFirstResponder = isInitialFirstResponder })
+    }
+    
     public func isFirstResponder(_ isFirstResponder: Bool) -> Self {
         then({ $0.isFirstResponder = isFirstResponder })
     }
@@ -214,12 +253,16 @@ extension CocoaTextField {
         then({ $0.autocapitalization = autocapitalization })
     }
     
-    public func font(_ font: UIFont) -> Self {
-        then({ $0.font = font })
+    public func font(_ uiFont: UIFont) -> Self {
+        then({ $0.uiFont = uiFont })
     }
     
     public func inputAccessoryView<InputAccessoryView: View>(_ view: InputAccessoryView) -> Self {
         then({ $0.inputAccessoryView = .init(view) })
+    }
+    
+    public func inputView<InputView: View>(_ view: InputView) -> Self {
+        then({ $0.inputView = .init(view) })
     }
     
     public func inputAccessoryView<InputAccessoryView: View>(@ViewBuilder _ view: () -> InputAccessoryView) -> Self {
@@ -244,7 +287,10 @@ extension CocoaTextField where Label == Text {
     }
     
     public func placeholder(_ placeholder: String) -> Self {
-        then({ $0.label = Text(placeholder).kerning(kerning) })
+        then {
+            $0.label = Text(placeholder).kerning(kerning)
+            $0.placeholder = placeholder
+        }
     }
 }
 

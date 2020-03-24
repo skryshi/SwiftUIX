@@ -7,11 +7,11 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
-public struct CocoaPresentationMode: PresentationModeProtocol {
+public struct CocoaPresentationMode: PresentationManager {
     var coordinator: CocoaPresentationCoordinator?
     
-    public var isPresented: Bool {
-        coordinator?.viewController != nil
+    public var isPresenting: Bool {
+        coordinator != nil
     }
     
     init(coordinator: CocoaPresentationCoordinator? = nil) {
@@ -19,7 +19,7 @@ public struct CocoaPresentationMode: PresentationModeProtocol {
     }
     
     public func dismiss() {
-        coordinator?.presentingCoordinator?.dismiss()
+        coordinator?.dismissSelf()
     }
 }
 

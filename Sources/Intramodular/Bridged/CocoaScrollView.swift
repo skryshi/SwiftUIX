@@ -9,48 +9,17 @@ import SwiftUI
 
 /// A SwiftUI port of `UIScrollView`.
 public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
+    public typealias Offset = ScrollView<Content>.ContentOffset
     public typealias UIViewType = UIScrollView
-    
-    public class Coordinator: NSObject, UIScrollViewDelegate {
-        private let base: CocoaScrollView
-        
-        var isInitialContentAlignmentSet: Bool = false
-        
-        init(base: CocoaScrollView) {
-            self.base = base
-        }
-        
-        @objc public func refreshChanged(_ control: UIRefreshControl) {
-            base.onRefresh?()
-            
-            if let isRefreshing = base.isRefreshing, !isRefreshing {
-                control.endRefreshing()
-            }
-        }
-        
-        public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            base.onPercentContentOffsetChange(scrollView.percentContentOffset)
-            scrollView.contentAlignment.map(base.onContentAlignmentChange)
-        }
-    }
     
     private let content: Content
     private let axes: Axis.Set
     private let showsIndicators: Bool
     
     @Environment(\.initialContentAlignment) var initialContentAlignment
+    @Environment(\.isScrollEnabled) var isScrollEnabled
     
-    private var alwaysBounceVertical: Bool = false
-    private var alwaysBounceHorizontal: Bool = false
-    private var isPagingEnabled: Bool = false
-    private var isScrollEnabled: Bool = true
-    private var isDirectionalLockEnabled: Bool = false
-    
-    private var onPercentContentOffsetChange: (CGPoint) -> () = { _ in }
-    private var onContentAlignmentChange: (Alignment) -> () = { _ in }
-    
-    private var onRefresh: (() -> Void)?
-    private var isRefreshing: Bool?
+    private var configuration = CocoaScrollViewConfiguration<Content>()
     
     public init(
         _ axes: Axis.Set = .vertical,
@@ -71,15 +40,29 @@ public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
     }
     
     public func updateUIView(_ uiView: UIViewType, context: Context) {
-        uiView.alwaysBounceVertical = alwaysBounceVertical
-        uiView.alwaysBounceHorizontal = alwaysBounceHorizontal
-        #if os(iOS) || targetEnvironment(macCatalyst)
-        uiView.isPagingEnabled = isPagingEnabled
-        #endif
+        let coordinator = context.coordinator
+        
         uiView.isScrollEnabled = isScrollEnabled
-        uiView.isDirectionalLockEnabled = isDirectionalLockEnabled
         uiView.showsVerticalScrollIndicator = showsIndicators && axes.contains(.vertical)
         uiView.showsHorizontalScrollIndicator = showsIndicators && axes.contains(.horizontal)
+        
+        var configuration = self.configuration
+        
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        configuration.setupRefreshControl = { [weak coordinator] in
+            guard let coordinator = coordinator else {
+                return
+            }
+            
+            $0.addTarget(
+                coordinator,
+                action: #selector(Coordinator.refreshChanged),
+                for: .valueChanged
+            )
+        }
+        #endif
+        
+        uiView.configure(with: configuration)
         
         let contentView: UIHostingView<Content>
         
@@ -111,6 +94,9 @@ public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
         contentView.frame.size = contentSize
         uiView.contentSize = contentSize
         
+        uiView.frame.size.width = min(uiView.frame.size.width, uiView.contentSize.width)
+        uiView.frame.size.height = min(uiView.frame.size.height, uiView.contentSize.height)
+        
         if !context.coordinator.isInitialContentAlignmentSet {
             if contentSize != .zero && uiView.frame.size != .zero  {
                 uiView.setContentAlignment(initialContentAlignment, animated: false)
@@ -121,42 +107,20 @@ public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
             if contentSize != oldContentSize {
                 var newContentOffset = uiView.contentOffset
                 
-                if initialContentAlignment.horizontal == .trailing {
-                    newContentOffset.x += contentSize.width - oldContentSize.width
+                if contentSize.width >= oldContentSize.width {
+                    if initialContentAlignment.horizontal == .trailing {
+                        newContentOffset.x += contentSize.width - oldContentSize.width
+                    }
                 }
                 
-                if initialContentAlignment.vertical == .bottom {
-                    newContentOffset.y += contentSize.height - oldContentSize.height
+                if contentSize.height >= oldContentSize.height {
+                    if initialContentAlignment.vertical == .bottom {
+                        newContentOffset.y += contentSize.height - oldContentSize.height
+                    }
                 }
                 
                 if newContentOffset != uiView.contentOffset {
                     uiView.setContentOffset(newContentOffset, animated: false)
-                }
-            }
-        }
-        
-        if onRefresh != nil {
-            let refreshControl: UIRefreshControl
-            
-            if let _refreshControl = uiView.refreshControl {
-                refreshControl = _refreshControl
-            } else {
-                refreshControl = UIRefreshControl()
-                
-                refreshControl.addTarget(
-                    context.coordinator,
-                    action: #selector(Coordinator.refreshChanged),
-                    for: .valueChanged
-                )
-                
-                uiView.refreshControl = refreshControl
-            }
-            
-            if let isRefreshing = isRefreshing {
-                if isRefreshing {
-                    refreshControl.beginRefreshing()
-                } else {
-                    refreshControl.endRefreshing()
                 }
             }
         }
@@ -168,22 +132,45 @@ public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
 }
 
 extension CocoaScrollView {
-    public func onPercentContentOffsetChange(_ body: @escaping (CGPoint) -> ()) -> Self {
-        then({ $0.onPercentContentOffsetChange = body })
-    }
-    
-    public func onContentAlignmentChange(_ body: @escaping (Alignment) -> ()) -> Self {
-        then({ $0.onContentAlignmentChange = body })
+    public class Coordinator: NSObject, UIScrollViewDelegate {
+        private let base: CocoaScrollView
+        
+        var isInitialContentAlignmentSet: Bool = false
+        
+        init(base: CocoaScrollView) {
+            self.base = base
+        }
+        
+        #if !os(tvOS)
+        @objc public func refreshChanged(_ control: UIRefreshControl) {
+            control.refreshChanged(with: base.configuration)
+        }
+        #endif
+        
+        public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            base.configuration.onOffsetChange(
+                scrollView.contentOffset(forContentType: Content.self)
+            )
+        }
     }
 }
 
+// MARK: - API -
+
+extension CocoaScrollView {
+    public func onOffsetChange(_ body: @escaping (Offset) -> ()) -> Self {
+        then({ $0.configuration.onOffsetChange = body })
+    }
+}
+
+@available(tvOS, unavailable)
 extension CocoaScrollView {
     public func onRefresh(_ body: @escaping () -> ()) -> Self {
-        then({ $0.onRefresh = body })
+        then({ $0.configuration.onRefresh = body })
     }
     
     public func isRefreshing(_ isRefreshing: Bool) -> Self {
-        then({ $0.isRefreshing = isRefreshing })
+        then({ $0.configuration.isRefreshing = isRefreshing })
     }
 }
 
