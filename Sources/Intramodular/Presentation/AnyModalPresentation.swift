@@ -7,9 +7,9 @@ import Swift
 import SwiftUI
 
 public struct AnyModalPresentation: Identifiable {
-    
     public let id = UUID()
-    public let content: EnvironmentalAnyView
+    
+    public private(set) var content: EnvironmentalAnyView
     
     let resetBinding: () -> ()
     
@@ -35,6 +35,20 @@ public struct AnyModalPresentation: Identifiable {
             .name(contentName)
         
         self.resetBinding = resetBinding
+    }
+}
+
+extension AnyModalPresentation {
+    public func mergeEnvironmentBuilder(_ builder: EnvironmentBuilder) -> Self {
+        var result = self
+        
+        result.mergeEnvironmentBuilderInPlace(builder)
+        
+        return result
+    }
+    
+    public mutating func mergeEnvironmentBuilderInPlace(_ builder: EnvironmentBuilder) {
+        content.mergeEnvironmentBuilderInPlace(builder)
     }
 }
 

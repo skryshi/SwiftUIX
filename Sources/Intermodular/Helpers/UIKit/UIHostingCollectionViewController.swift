@@ -7,7 +7,7 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
-public final class UIHostingCollectionViewController<SectionModel: Identifiable, Item: Identifiable, Data: RandomAccessCollection, SectionHeader: View, SectionFooter: View, RowContent: View>: UICollectionViewController where Data.Element == ListSection<SectionModel, Item> {
+public final class UIHostingCollectionViewController<SectionModel: Identifiable, Item: Identifiable, Data: RandomAccessCollection, SectionHeader: View, SectionFooter: View, RowContent: View>: UICollectionViewController, UICollectionViewDelegateFlowLayout where Data.Element == ListSection<SectionModel, Item> {
     private var _isDataDirty: Bool
     
     var data: Data {
@@ -23,7 +23,6 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
     var rowContent: (Item) -> RowContent
     
     private var _rowContentHeightCache: [Item.ID: CGFloat] = [:]
-    private var _prototypeCell: UIHostingTableViewCell<Item, RowContent>?
     
     public init(
         _ data: Data,
@@ -40,7 +39,6 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
         
         super.init(collectionViewLayout: collectionViewLayout)
         
-        
         collectionView.backgroundColor = .clear
         collectionView.backgroundView = UIView()
         collectionView.backgroundView?.backgroundColor = .clear
@@ -51,6 +49,14 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    override public func viewSafeAreaInsetsDidChange()  {
+        super.viewSafeAreaInsetsDidChange()
+
+        collectionViewLayout.invalidateLayout() /// WORKAROUND (for rotation animation)
+    }
+
+    // MARK: - UICollectionViewDataSource -
     
     override public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         data[data.index(data.startIndex, offsetBy: section)].items.count
@@ -67,6 +73,54 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
         cell.update()
         
         return cell
+    }
+    
+    override public func numberOfSections(in collectionView: UICollectionView) -> Int {
+        data.count
+    }
+    
+    // MARK: - UICollectionViewDelegate -
+    
+    override public func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        self.cell(for: indexPath)?.update()
+    }
+    
+    override public func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
+        cell(for: indexPath)?.listRowPreferences?.isHighlightable ?? false
+    }
+    
+    override public func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        cell(for: indexPath)?.isHighlighted = true
+    }
+    
+    override public func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+        cell(for: indexPath)?.isHighlighted = false
+    }
+    
+    override public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        cell(for: indexPath)?.listRowPreferences?.onSelect?.perform()
+    }
+    
+    override public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+        cell(for: indexPath)?.listRowPreferences?.onDeselect?.perform()
+    }
+    
+    // MARK: - UICollectionViewDelegateFlowLayout -
+    
+    /*public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let result = UIHostingController(rootView: rowContent(data[indexPath])).sizeThatFits(in: UIView.layoutFittingCompressedSize)
+        
+        if result == .zero {
+            return .init(width: 1, height: 1)
+        }
+        
+        return result
+    }*/
+}
+
+extension UIHostingCollectionViewController {
+    public func cell(for indexPath: IndexPath) -> UIHostingCollectionViewCell<Item, RowContent>? {
+        collectionView.visibleCells.compactMap({ $0 as? UIHostingCollectionViewCell<Item, RowContent> }).first(where: { $0.indexPath == indexPath }) ?? collectionView.dequeueReusableCell(withReuseIdentifier: .hostingCollectionViewCellIdentifier, for: indexPath) as! UIHostingCollectionViewCell<Item, RowContent>
     }
     
     public func reloadData() {

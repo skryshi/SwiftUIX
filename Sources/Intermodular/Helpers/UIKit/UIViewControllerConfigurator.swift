@@ -9,11 +9,20 @@ import SwiftUI
 import UIKit
 
 /// A modifier that can be applied to a view, exposing access to the parent `UIViewController`.
+@usableFromInline
 struct UIViewControllerConfigurator: UIViewControllerRepresentable {
+    @usableFromInline
     struct Configuration {
+        @usableFromInline
         var hidesBottomBarWhenPushed: Bool?
+        
+        @usableFromInline
+        init() {
+            
+        }
     }
     
+    @usableFromInline
     class UIViewControllerType: UIViewController {
         var configuration: Configuration {
             didSet {
@@ -38,20 +47,25 @@ struct UIViewControllerConfigurator: UIViewControllerRepresentable {
         }
     }
     
+    @usableFromInline
     var configuration: Configuration
     
+    @usableFromInline
     init(configuration: Configuration = .init()) {
         self.configuration = configuration
     }
     
+    @usableFromInline
     func makeUIViewController(context: Context) -> UIViewControllerType {
         .init(configuration: configuration)
     }
     
+    @usableFromInline
     func updateUIViewController(_ viewController: UIViewControllerType, context: Context) {
         viewController.configuration = configuration
     }
     
+    @usableFromInline
     func configure(_ transform: (inout Configuration) -> Void) -> Self {
         then({ transform(&$0.configuration) })
     }
@@ -59,8 +73,9 @@ struct UIViewControllerConfigurator: UIViewControllerRepresentable {
 
 // MARK: - Auxiliary Implementation -
 
-fileprivate extension UIViewController {
+extension UIViewController {
     /// Configures this view controller with a given configuration.
+    @inlinable
     func configure(with configuration: UIViewControllerConfigurator.Configuration) {
         #if os(iOS) || targetEnvironment(macCatalyst)
         if let newValue = configuration.hidesBottomBarWhenPushed {
@@ -70,9 +85,11 @@ fileprivate extension UIViewController {
     }
 }
 
-fileprivate extension View {
+
+extension View {
     /// Configures this view's parent `UIViewController`.
-    private func configureUIViewController(
+    @inlinable
+    func configureUIViewController(
         _ transform: (inout UIViewControllerConfigurator.Configuration) -> Void
     ) -> some View {
         background(UIViewControllerConfigurator().configure(transform))
@@ -84,6 +101,7 @@ fileprivate extension View {
 extension View {
     /// Sets whether the bottom bar is hidden when this view is pushed.
     @available(tvOS, unavailable)
+    @inlinable
     public func hidesBottomBarWhenPushed(_ newValue: Bool) -> some View {
         configureUIViewController {
             $0.hidesBottomBarWhenPushed = newValue

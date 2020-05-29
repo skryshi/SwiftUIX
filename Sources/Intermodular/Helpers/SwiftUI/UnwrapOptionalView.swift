@@ -6,25 +6,22 @@ import Combine
 import Swift
 import SwiftUI
 
-public struct UnwrapOptionalView<Value, Content: View>: View {
-    private let content: Content?
+/// A view that unwraps an `Optional` to produce some content.
+public struct UnwrapOptionalView<Content: View>: View {
+    @usableFromInline
+    let content: Content?
     
-    public init(_ value: Optional<Value>, @ViewBuilder content: (Value) -> Content) {
+    @inlinable
+    public init<Value>(_ value: Optional<Value>, @ViewBuilder content: (Value) -> Content) {
         self.content = value.map(content)
     }
     
+    @inlinable
     public var body: some View {
-        content ?? EmptyView()
+        content
     }
     
-    public func `else`<V: View>(@ViewBuilder _ view: () -> V) -> some View {
-        self ?? view()
-    }
-    
-    public func `else`<V: View>(_ view: V) -> some View {
-        self ?? view
-    }
-    
+    @inlinable
     public static func ?? <V: View>(lhs: UnwrapOptionalView, rhs: V) -> some View {
         Group {
             if lhs.content == nil {
@@ -36,15 +33,29 @@ public struct UnwrapOptionalView<Value, Content: View>: View {
     }
 }
 
+extension UnwrapOptionalView {
+    @inlinable
+    public func `else`<V: View>(@ViewBuilder _ view: () -> V) -> some View {
+        self ?? view()
+    }
+    
+    @inlinable
+    public func `else`<V: View>(_ view: V) -> some View {
+        self ?? view
+    }
+}
+
 // MARK: - Helpers -
 
 extension Optional {
-    public func ifSome<Content: View>(@ViewBuilder content: (Wrapped) -> Content) -> UnwrapOptionalView<Wrapped, Content> {
+    @inlinable
+    public func ifSome<Content: View>(@ViewBuilder content: (Wrapped) -> Content) -> UnwrapOptionalView<Content> {
         .init(self, content: content)
     }
 }
 
 extension View {
+    @inlinable
     public func unwrap<T, V: View>(_ value: T?, transform: (T, Self) -> V) -> some View {
         Group {
             if value != nil {

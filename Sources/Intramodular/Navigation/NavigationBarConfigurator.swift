@@ -7,7 +7,9 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
-private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: View>: UIViewControllerRepresentable {
+@usableFromInline
+struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: View>: UIViewControllerRepresentable {
+    @usableFromInline
     class UIViewControllerType: UIViewController {
         var leading: Leading? {
             didSet {
@@ -69,6 +71,8 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
                         parent.navigationItem.leftBarButtonItem?.customView = UIHostingView(rootView: leading)
                     }
                 }
+            } else {
+                parent.navigationItem.leftBarButtonItem = nil
             }
             
             if let center = center {
@@ -79,9 +83,11 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
                         parent.navigationItem.titleView = UIHostingView(rootView: center)
                     }
                 }
+            } else {
+                parent.navigationItem.titleView = nil
             }
             
-            if let trailing = trailing{
+            if let trailing = trailing {
                 if !(trailing is EmptyView) {
                     if parent.navigationItem.rightBarButtonItem == nil {
                         parent.navigationItem.rightBarButtonItem = .init(customView: UIHostingView(rootView: trailing))
@@ -91,6 +97,8 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
                         parent.navigationItem.rightBarButtonItem?.customView = UIHostingView(rootView: trailing)
                     }
                 }
+            } else {
+                parent.navigationItem.rightBarButtonItem = nil
             }
             
             parent.navigationItem.leftBarButtonItem?.customView?.sizeToFit()
@@ -104,6 +112,7 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
     let trailing: Trailing
     let displayMode: NavigationBarItem.TitleDisplayMode?
     
+    @usableFromInline
     init(
         leading: Leading,
         center: Center,
@@ -116,10 +125,12 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
         self.displayMode = displayMode
     }
     
+    @usableFromInline
     func makeUIViewController(context: Context) -> UIViewControllerType {
         .init()
     }
     
+    @usableFromInline
     func updateUIViewController(_ viewController: UIViewControllerType, context: Context) {
         viewController.displayMode = displayMode
         viewController.leading = leading
@@ -129,6 +140,7 @@ private struct NavigationBarConfigurator<Leading: View, Center: View, Trailing: 
 }
 
 extension View {
+    @inlinable
     public func navigationBarItems<Leading: View, Center: View, Trailing: View>(
         leading: Leading,
         center: Center,
@@ -138,6 +150,7 @@ extension View {
         background(NavigationBarConfigurator(leading: leading, center: center, trailing: trailing, displayMode: displayMode))
     }
     
+    @inlinable
     public func navigationBarItems<Leading: View, Center: View>(
         leading: Leading,
         center: Center,
@@ -146,13 +159,22 @@ extension View {
         navigationBarItems(leading: leading, center: center, trailing: EmptyView(), displayMode: displayMode)
     }
     
+    @inlinable
     public func navigationBarTitleView<V: View>(
         _ center: V,
-        displayMode: NavigationBarItem.TitleDisplayMode = .automatic
+        displayMode: NavigationBarItem.TitleDisplayMode
     ) -> some View {
         navigationBarItems(leading: EmptyView(), center: center, trailing: EmptyView(), displayMode: displayMode)
     }
     
+    @inlinable
+    public func navigationBarTitleView<V: View>(
+        _ center: V
+    ) -> some View {
+        navigationBarItems(leading: EmptyView(), center: center, trailing: EmptyView(), displayMode: .automatic)
+    }
+
+    @inlinable
     public func navigationBarItems<Center: View, Trailing: View>(
         center: Center,
         trailing: Trailing,

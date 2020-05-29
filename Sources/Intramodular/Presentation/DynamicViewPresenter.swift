@@ -5,15 +5,13 @@
 import Swift
 import SwiftUI
 
-public protocol DynamicViewPresenter: DynamicViewPresentable, PresentationManager {
-    var presenter: DynamicViewPresenter? { get }
+/// A type that manages view presentation.
+public protocol DynamicViewPresenter: DynamicViewPresentable, EnvironmentProvider, PresentationManager {
     var presented: DynamicViewPresentable? { get }
-    var presentedViewName: ViewName? { get }
     
     func present(_ presentation: AnyModalPresentation)
     
     func dismiss(animated: Bool, completion: (() -> Void)?)
-    func dismissView(named _: ViewName, completion: @escaping () -> Void)
 }
 
 // MARK: - Implementation -
@@ -76,12 +74,12 @@ extension DynamicViewPresenter {
 }
 
 extension DynamicViewPresenter {
-    public func dismiss(completion: @escaping () -> Void) {
+    public func dismiss(completion: (() -> Void)?) {
         dismiss(animated: true, completion: completion)
     }
     
     public func dismiss() {
-        dismiss { }
+        dismiss(animated: true, completion: nil)
     }
     
     public func dismissSelf() {
@@ -101,23 +99,25 @@ extension DynamicViewPresenter {
     
     public func dismissView(
         named name: ViewName,
-        completion: @escaping () -> Void
+        completion: (() -> Void)?
     ) {
         var presenter: DynamicViewPresenter? = self.presenter ?? self
         
         while let presented = presenter {
-            if presented.presentedViewName == name {
-                return presented.dismiss(completion: completion)
+            if presented.name == name {
+                presented.presenter?.dismiss(completion: completion)
+                
+                return
             }
             
             presenter = presented.presented as? DynamicViewPresenter
         }
         
-        completion()
+        completion?()
     }
     
     public func dismissView<H: Hashable>(named name: H) {
-        dismissView(named: .init(name), completion: { })
+        dismissView(named: .init(name), completion: nil)
     }
 }
 
@@ -143,7 +143,7 @@ extension EnvironmentValues {
 
 extension UIViewController: DynamicViewPresenter {
     private static var presentationCoordinatorKey: Void = ()
-    
+        
     @objc open var presentationCoordinator: CocoaPresentationCoordinator {
         if let coordinator = objc_getAssociatedObject(self, &UIViewController.presentationCoordinatorKey) {
             return coordinator as! CocoaPresentationCoordinator
@@ -160,12 +160,22 @@ extension UIViewController: DynamicViewPresenter {
         presentationCoordinator.presented
     }
     
-    public var presentedViewName: ViewName? {
-        presentationCoordinator.presentedViewName
-    }
-    
     public func present(_ presentation: AnyModalPresentation) {
         presentationCoordinator.present(presentation)
+    }
+}
+
+extension UIWindow: DynamicViewPresenter {
+    public var presented: DynamicViewPresentable? {
+        rootViewController?.presented
+    }
+        
+    public func present(_ presentation: AnyModalPresentation) {
+        rootViewController?.present(presentation)
+    }
+    
+    public func dismiss(animated: Bool, completion: (() -> Void)?) {
+        rootViewController?.dismiss(animated: animated, completion: completion)
     }
 }
 

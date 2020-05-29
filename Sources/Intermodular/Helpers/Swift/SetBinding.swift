@@ -7,12 +7,20 @@ import SwiftUI
 
 @propertyWrapper
 public struct SetBinding<Value> {
-    private let set: (Value) -> ()
+    @usableFromInline
+    let set: (Value) -> ()
     
+    @inlinable
     public init(set: @escaping (Value) -> ()) {
         self.set = set
     }
     
+    @inlinable
+    public init(_ binding: Binding<Value>) {
+        self.set = { binding.wrappedValue = $0 }
+    }
+    
+    @inlinable
     public var wrappedValue: Value {
         get {
             fatalError()
@@ -21,6 +29,7 @@ public struct SetBinding<Value> {
         }
     }
     
+    @inlinable
     public var projectedValue: Binding<Value> {
         .init(
             get: { fatalError() },
@@ -28,6 +37,7 @@ public struct SetBinding<Value> {
         )
     }
     
+    @inlinable
     public func set(_ value: Value) {
         self.set(value)
     }
@@ -36,6 +46,7 @@ public struct SetBinding<Value> {
 // MARK: - Helpers -
 
 extension Binding {
+    @inlinable
     public init(set: SetBinding<Value>, defaultValue: Value) {
         self.init(
             get: { defaultValue },

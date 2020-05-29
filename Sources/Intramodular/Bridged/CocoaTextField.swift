@@ -13,11 +13,13 @@ public struct CocoaTextField<Label: View>: CocoaView {
     private var text: Binding<String>
     private var onEditingChanged: (Bool) -> Void
     private var onCommit: () -> Void
+    private var onDeleteBackward: () -> Void = { }
     
     private var isInitialFirstResponder: Bool?
     private var isFirstResponder: Bool?
     
     private var autocapitalization: UITextAutocapitalizationType?
+    private var borderStyle: UITextField.BorderStyle = .none
     private var uiFont: UIFont?
     private var inputAccessoryView: AnyView?
     private var inputView: AnyView?
@@ -40,9 +42,11 @@ public struct CocoaTextField<Label: View>: CocoaView {
                 text: text,
                 onEditingChanged: onEditingChanged,
                 onCommit: onCommit,
+                onDeleteBackward: onDeleteBackward,
                 isInitialFirstResponder: isInitialFirstResponder,
                 isFirstResponder: isFirstResponder,
                 autocapitalization: autocapitalization,
+                borderStyle: borderStyle,
                 uiFont: uiFont,
                 inputAccessoryView: inputAccessoryView,
                 inputView: inputView,
@@ -55,7 +59,7 @@ public struct CocoaTextField<Label: View>: CocoaView {
 }
 
 public struct _CocoaTextField: UIViewRepresentable {
-    public typealias UIViewType = UITextField
+    public typealias UIViewType = _UITextField
     
     @Environment(\.font) var font
     @Environment(\.isEnabled) var isEnabled
@@ -65,9 +69,11 @@ public struct _CocoaTextField: UIViewRepresentable {
     
     var onEditingChanged: (Bool) -> Void
     var onCommit: () -> Void
+    var onDeleteBackward: () -> Void
     var isInitialFirstResponder: Bool?
     var isFirstResponder: Bool?
     var autocapitalization: UITextAutocapitalizationType?
+    var borderStyle: UITextField.BorderStyle
     var uiFont: UIFont?
     var inputAccessoryView: AnyView?
     var inputView: AnyView?
@@ -125,12 +131,15 @@ public struct _CocoaTextField: UIViewRepresentable {
     }
     
     public func updateUIView(_ uiView: UIViewType, context: Context) {
+        uiView.onDeleteBackward = onDeleteBackward
+        
         uiView.setContentHuggingPriority(.defaultHigh, for: .vertical)
         
         if let autocapitalization = autocapitalization {
             uiView.autocapitalizationType = autocapitalization
         }
         
+        uiView.borderStyle = borderStyle
         uiView.font = uiFont ?? font?.toUIFont()
         
         if let kerning = kerning {
@@ -239,6 +248,12 @@ extension CocoaTextField where Label == Text {
 }
 
 extension CocoaTextField {
+    public func onDeleteBackward(perform action: @escaping () -> Void) -> Self {
+        then({ $0.onDeleteBackward = action })
+    }
+}
+
+extension CocoaTextField {
     public func isInitialFirstResponder(_ isInitialFirstResponder: Bool) -> Self {
         then({ $0.isInitialFirstResponder = isInitialFirstResponder })
     }
@@ -251,6 +266,10 @@ extension CocoaTextField {
 extension CocoaTextField {
     public func autocapitalization(_ autocapitalization: UITextAutocapitalizationType) -> Self {
         then({ $0.autocapitalization = autocapitalization })
+    }
+    
+    public func borderStyle(_ borderStyle: UITextField.BorderStyle) -> Self {
+        then({ $0.borderStyle = borderStyle })
     }
     
     public func font(_ uiFont: UIFont) -> Self {

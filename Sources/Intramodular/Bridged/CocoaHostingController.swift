@@ -13,7 +13,7 @@ open class CocoaHostingController<Content: View>: UIHostingController<CocoaHosti
     public override var presentationCoordinator: CocoaPresentationCoordinator {
         return _presentationCoordinator
     }
-        
+    
     public var rootViewContent: Content {
         get {
             rootView.content
@@ -31,6 +31,17 @@ open class CocoaHostingController<Content: View>: UIHostingController<CocoaHosti
         super.init(rootView: .init(content: rootView, presentationCoordinator: presentationCoordinator))
         
         presentationCoordinator.setViewController(self)
+        
+        if let rootView = rootView as? EnvironmentalAnyView {
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            hidesBottomBarWhenPushed = rootView.hidesBottomBarWhenPushed
+            #endif
+            isModalInPresentation = !rootView.isModalDismissable
+            modalPresentationStyle = .init(rootView.presentationStyle)
+            transitioningDelegate = rootView.presentationStyle.transitioningDelegate
+            
+            environmentBuilder.merge(rootView.presentationEnvironmentBuilder)
+        }
     }
     
     public convenience init(rootView: Content) {

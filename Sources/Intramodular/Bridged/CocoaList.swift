@@ -11,21 +11,25 @@ public struct CocoaList<SectionModel: Identifiable, Item: Identifiable, Data: Ra
     public typealias Offset = ScrollView<AnyView>.ContentOffset
     public typealias UIViewControllerType = UIHostingTableViewController<SectionModel, Item, Data, SectionHeader, SectionFooter, RowContent>
     
-    private let data: Data
-    private let sectionHeader: (SectionModel) -> SectionHeader
-    private let sectionFooter: (SectionModel) -> SectionFooter
-    private let rowContent: (Item) -> RowContent
+    @usableFromInline
+    let data: Data
+    @usableFromInline
+    let sectionHeader: (SectionModel) -> SectionHeader
+    @usableFromInline
+    let sectionFooter: (SectionModel) -> SectionFooter
+    @usableFromInline
+    let rowContent: (Item) -> RowContent
     
-    private var style: UITableView.Style = .plain
+    @usableFromInline
+    var style: UITableView.Style = .plain
     
     #if !os(tvOS)
-    private var separatorStyle: UITableViewCell.SeparatorStyle = .singleLine
+    @usableFromInline
+    var separatorStyle: UITableViewCell.SeparatorStyle = .singleLine
     #endif
     
-    private var scrollViewConfiguration = CocoaScrollViewConfiguration<AnyView>()
-    
-    @Environment(\.initialContentAlignment) var initialContentAlignment
-    @Environment(\.isScrollEnabled) var isScrollEnabled
+    @usableFromInline
+    var scrollViewConfiguration = CocoaScrollViewConfiguration<AnyView>()
     
     public init(
         _ data: Data,
@@ -55,15 +59,13 @@ public struct CocoaList<SectionModel: Identifiable, Item: Identifiable, Data: Ra
         uiViewController.sectionFooter = sectionFooter
         uiViewController.rowContent = rowContent
         
-        uiViewController.initialContentAlignment = initialContentAlignment
-        uiViewController.scrollViewConfiguration = scrollViewConfiguration
+        uiViewController.initialContentAlignment = context.environment.initialContentAlignment
         
-        uiViewController.tableView.isScrollEnabled = isScrollEnabled
+        uiViewController.scrollViewConfiguration = scrollViewConfiguration.updating(from: context.environment)
+
         #if !os(tvOS)
         uiViewController.tableView.separatorStyle = separatorStyle
         #endif
-        
-        uiViewController.tableView.configure(with: scrollViewConfiguration)
         
         uiViewController.reloadData()
     }
@@ -142,11 +144,13 @@ extension CocoaList where Data == Array<ListSection<SectionModel, Item>>, Sectio
 // MARK: - API -
 
 extension CocoaList {
+    @inlinable
     public func listStyle(_ style: UITableView.Style) -> Self {
         then({ $0.style = style })
     }
     
     #if !os(tvOS)
+    @inlinable
     public func listSeparatorStyle(_ separatorStyle: UITableViewCell.SeparatorStyle) -> Self {
         then({ $0.separatorStyle = separatorStyle })
     }
@@ -154,17 +158,25 @@ extension CocoaList {
 }
 
 extension CocoaList {
+    @inlinable
     public func onOffsetChange(_ body: @escaping (Offset) -> ()) -> Self {
         then({ $0.scrollViewConfiguration.onOffsetChange = body })
+    }
+    
+    @inlinable
+    public func contentOffset(_ contentOffset: Binding<CGPoint>) -> Self {
+        then({ $0.scrollViewConfiguration.contentOffset = contentOffset })
     }
 }
 
 @available(tvOS, unavailable)
 extension CocoaList {
+    @inlinable
     public func onRefresh(_ body: @escaping () -> Void) -> Self {
         then({ $0.scrollViewConfiguration.onRefresh = body })
     }
     
+    @inlinable
     public func isRefreshing(_ isRefreshing: Bool) -> Self {
         then({ $0.scrollViewConfiguration.isRefreshing = isRefreshing })
     }

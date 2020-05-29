@@ -10,6 +10,7 @@ import SwiftUI
 import UIKit
 
 /// An object representing the keyboard.
+@available(iOSApplicationExtension, unavailable)
 public final class Keyboard: ObservableObject {
     public static let main = Keyboard()
     
@@ -22,7 +23,7 @@ public final class Keyboard: ObservableObject {
     private var keyboardWillChangeFrameSubscription: AnyCancellable?
     private var keyboardDidChangeFrameSubscription: AnyCancellable?
     private var keyboardDidHideSubscription: AnyCancellable?
-
+    
     public init(notificationCenter: NotificationCenter = .default) {
         #if os(iOS) || targetEnvironment(macCatalyst)
         
@@ -37,7 +38,7 @@ public final class Keyboard: ObservableObject {
             .compactMap({ Keyboard.State(notification: $0, screen: .main) })
             .receive(on: DispatchQueue.main)
             .assign(to: \.state, on: self)
-
+        
         self.keyboardDidHideSubscription = notificationCenter
             .publisher(for: UIResponder.keyboardDidHideNotification)
             .receive(on: DispatchQueue.main)
@@ -59,6 +60,7 @@ public final class Keyboard: ObservableObject {
     }
 }
 
+@available(iOSApplicationExtension, unavailable)
 extension Keyboard {
     public struct State {
         public static let `default` = State()
@@ -77,7 +79,7 @@ extension Keyboard {
         
         init?(notification: Notification, screen: Screen) {
             #if os(iOS) || targetEnvironment(macCatalyst)
-
+            
             guard
                 let userInfo = notification.userInfo,
                 let animationDuration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval,
@@ -113,25 +115,28 @@ extension Keyboard {
 
 // MARK: - Helpers -
 
+@available(iOSApplicationExtension, unavailable)
 struct HiddenIfKeyboardActive: ViewModifier {
     @ObservedObject var keyboard: Keyboard = .main
-
+    
     func body(content: Content) -> some View {
         content.hidden(keyboard.isShowing)
     }
 }
 
+@available(iOSApplicationExtension, unavailable)
 struct VisibleIfKeyboardActive: ViewModifier {
     @ObservedObject var keyboard: Keyboard = .main
-        
+    
     func body(content: Content) -> some View {
         content.hidden(!keyboard.isShowing)
     }
 }
 
+@available(iOSApplicationExtension, unavailable)
 struct RemoveIfKeyboardActive: ViewModifier {
     @ObservedObject var keyboard: Keyboard = .main
-        
+    
     func body(content: Content) -> some View {
         content.frame(
             width: keyboard.isShowing ? 0 : nil,
@@ -141,9 +146,10 @@ struct RemoveIfKeyboardActive: ViewModifier {
     }
 }
 
+@available(iOSApplicationExtension, unavailable)
 struct AddIfKeyboardActive: ViewModifier {
     @ObservedObject var keyboard: Keyboard = .main
-
+    
     func body(content: Content) -> some View {
         content.frame(
             width: keyboard.isShowing ? nil : 0,
@@ -153,6 +159,7 @@ struct AddIfKeyboardActive: ViewModifier {
     }
 }
 
+@available(iOSApplicationExtension, unavailable)
 extension View {
     public func hiddenIfKeyboardActive() -> some View {
         modifier(HiddenIfKeyboardActive())
