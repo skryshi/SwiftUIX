@@ -5,23 +5,27 @@
 import Swift
 import SwiftUI
 
-public protocol opaque_ModalPresentationView: opaque_View {
+public protocol _opaque_ModalPresentationView: _opaque_View {
+    var preferredSourceViewName: ViewName? { get }
     var presentationEnvironmentBuilder: EnvironmentBuilder? { get }
-    var presentationStyle: ModalViewPresentationStyle { get }
+    var presentationStyle: ModalPresentationStyle { get }
     var isModalPresentationAnimated: Bool { get }
     var isModalDismissable: Bool { get }
-
+    
     func onPresent()
     func onDismiss()
 }
 
 /// A view that is configured for modal presentation.
-public protocol ModalPresentationView: opaque_ModalPresentationView, View {
+public protocol ModalPresentationView: _opaque_ModalPresentationView, View {
+    /// The preferred source view for the modal presentation.
+    var preferredSourceViewName: ViewName? { get }
+    
     /// The environment to build for the modal presentation.
     var presentationEnvironmentBuilder: EnvironmentBuilder? { get }
     
     /// The presentation style for the modal presentation.
-    var presentationStyle: ModalViewPresentationStyle { get }
+    var presentationStyle: ModalPresentationStyle { get }
     
     /// Whether the modal presentation is animated or not.
     var isModalPresentationAnimated: Bool { get }
@@ -36,20 +40,24 @@ public protocol ModalPresentationView: opaque_ModalPresentationView, View {
 // MARK: - Implementation -
 
 extension ModalPresentationView {
+    public var preferredSourceViewName: ViewName? {
+        nil
+    }
+    
     public var presentationEnvironmentBuilder: EnvironmentBuilder? {
         presentationEnvironmentBuilder
     }
     
-    public var presentationStyle: ModalViewPresentationStyle {
+    public var presentationStyle: ModalPresentationStyle {
         .automatic
     }
     
     public var isModalPresentationAnimated: Bool {
-        return true
+        true
     }
     
     public var isModalDismissable: Bool {
-        return true
+        true
     }
     
     public func onPresent() {

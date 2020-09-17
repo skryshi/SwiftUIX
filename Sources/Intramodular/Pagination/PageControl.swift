@@ -13,9 +13,19 @@ public struct PageControl {
     public let numberOfPages: Int
     public let currentPage: Binding<Int>
     
-    @Environment(\.pageIndicatorTintColor) private var pageIndicatorTintColor
-    @Environment(\.currentPageIndicatorTintColor) private var currentPageIndicatorTintColor
+    @usableFromInline
+    @Environment(\.pageIndicatorTintColor) var pageIndicatorTintColor
     
+    @usableFromInline
+    @Environment(\.currentPageIndicatorTintColor) var currentPageIndicatorTintColor
+    
+    @usableFromInline
+    var defersCurrentPageDisplay: Bool?
+    
+    @usableFromInline
+    var hidesForSinglePage: Bool?
+    
+    @inlinable
     public init(numberOfPages: Int, currentPage: Binding<Int>) {
         self.numberOfPages = numberOfPages
         self.currentPage = currentPage
@@ -25,20 +35,24 @@ public struct PageControl {
 // MARK: - Protocol Implementations -
 
 extension PageControl: UIViewRepresentable {
+    public typealias UIViewType = UIPageControl
+    
     public class Coordinator: NSObject {
-        public var parent: PageControl
+        @usableFromInline
+        var base: PageControl
         
-        public init(_ parent: PageControl) {
-            self.parent = parent
+        @usableFromInline
+        init(_ base: PageControl) {
+            self.base = base
         }
         
+        @inlinable
         @objc public func updateCurrentPage(sender: UIViewType) {
-            parent.currentPage.wrappedValue = sender.currentPage
+            base.currentPage.wrappedValue = sender.currentPage
         }
     }
     
-    public typealias UIViewType = UIPageControl
-    
+    @inlinable
     public func makeUIView(context: Context) -> UIViewType {
         let uiView = UIPageControl()
         
@@ -51,49 +65,43 @@ extension PageControl: UIViewRepresentable {
         return uiView
     }
     
+    @inlinable
     public func updateUIView(_ uiView: UIViewType, context: Context) {
+        context.coordinator.base = self
+        
         uiView.currentPage = currentPage.wrappedValue
         uiView.currentPageIndicatorTintColor = currentPageIndicatorTintColor?.toUIColor3()
         uiView.numberOfPages = numberOfPages
         uiView.pageIndicatorTintColor = pageIndicatorTintColor?.toUIColor()
+        
+        if let hidesForSinglePage = hidesForSinglePage {
+            uiView.hidesForSinglePage = hidesForSinglePage
+        }
+        
+        if let defersCurrentPageDisplay = defersCurrentPageDisplay {
+            uiView.defersCurrentPageDisplay = defersCurrentPageDisplay
+        }
     }
     
+    @inlinable
     public func makeCoordinator() -> Coordinator {
         .init(self)
     }
 }
 
-// MARK: - Auxiliary Implementation -
+// MARK: - API -
 
 extension PageControl {
-    struct TintColorEnvironmentKey: EnvironmentKey {
-        static let defaultValue: Color? = nil
+    @inlinable
+    public func defersCurrentPageDisplay(_ defersCurrentPageDisplay: Bool) -> Self {
+        then({ $0.defersCurrentPageDisplay = defersCurrentPageDisplay })
     }
     
-    struct CurrentTintColorEnvironmentKey: EnvironmentKey {
-        static let defaultValue: Color? = nil
+    @inlinable
+    public func hidesForSinglePage(_ hidesForSinglePage: Bool) -> Self {
+        then({ $0.hidesForSinglePage = hidesForSinglePage })
     }
 }
-
-extension EnvironmentValues {
-    public var pageIndicatorTintColor: Color? {
-        get {
-            self[PageControl.TintColorEnvironmentKey]
-        } set {
-            self[PageControl.TintColorEnvironmentKey] = newValue
-        }
-    }
-    
-    public var currentPageIndicatorTintColor: Color? {
-        get {
-            self[PageControl.CurrentTintColorEnvironmentKey]
-        } set {
-            self[PageControl.CurrentTintColorEnvironmentKey] = newValue
-        }
-    }
-}
-
-// MARK: - API -
 
 extension View {
     @inlinable
@@ -104,6 +112,42 @@ extension View {
     @inlinable
     public func currentPageIndicatorTintColor(_ color: Color) -> some View {
         environment(\.currentPageIndicatorTintColor, color)
+    }
+}
+
+// MARK: - Auxiliary Implementation -
+
+extension PageControl {
+    @usableFromInline
+    struct TintColorEnvironmentKey: EnvironmentKey {
+        @usableFromInline
+        static let defaultValue: Color? = nil
+    }
+    
+    @usableFromInline
+    struct CurrentTintColorEnvironmentKey: EnvironmentKey {
+        @usableFromInline
+        static let defaultValue: Color? = nil
+    }
+}
+
+extension EnvironmentValues {
+    @inlinable
+    public var pageIndicatorTintColor: Color? {
+        get {
+            self[PageControl.TintColorEnvironmentKey]
+        } set {
+            self[PageControl.TintColorEnvironmentKey] = newValue
+        }
+    }
+    
+    @inlinable
+    public var currentPageIndicatorTintColor: Color? {
+        get {
+            self[PageControl.CurrentTintColorEnvironmentKey]
+        } set {
+            self[PageControl.CurrentTintColorEnvironmentKey] = newValue
+        }
     }
 }
 

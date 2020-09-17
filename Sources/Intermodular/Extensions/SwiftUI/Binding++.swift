@@ -49,6 +49,21 @@ extension Binding {
             set: { self.wrappedValue = $0; body($0) }
         )
     }
+        
+    @inlinable
+    public func onChange(perform action: @escaping (Value) -> ()) -> Self {
+        return .init(
+            get: { self.wrappedValue },
+            set: { self.wrappedValue = $0; action($0) }
+        )
+    }
+    
+    @inlinable
+    public func onChange(toggle value: Binding<Bool>) -> Self {
+        onChange { _ in 
+            value.wrappedValue.toggle()
+        }
+    }
 }
 
 extension Binding {

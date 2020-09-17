@@ -52,10 +52,10 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
     
     override public func viewSafeAreaInsetsDidChange()  {
         super.viewSafeAreaInsetsDidChange()
-
+        
         collectionViewLayout.invalidateLayout() /// WORKAROUND (for rotation animation)
     }
-
+    
     // MARK: - UICollectionViewDataSource -
     
     override public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -70,7 +70,7 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
         cell.item = data[indexPath]
         cell.makeContent = rowContent
         
-        cell.update()
+        cell.willDisplay()
         
         return cell
     }
@@ -81,8 +81,12 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
     
     // MARK: - UICollectionViewDelegate -
     
+    override public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        (cell as! UIHostingCollectionViewCell<Item, RowContent>).willDisplay()
+    }
+    
     override public func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        self.cell(for: indexPath)?.update()
+        (cell as! UIHostingCollectionViewCell<Item, RowContent>).didEndDisplaying()
     }
     
     override public func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
@@ -104,18 +108,6 @@ public final class UIHostingCollectionViewController<SectionModel: Identifiable,
     override public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         cell(for: indexPath)?.listRowPreferences?.onDeselect?.perform()
     }
-    
-    // MARK: - UICollectionViewDelegateFlowLayout -
-    
-    /*public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let result = UIHostingController(rootView: rowContent(data[indexPath])).sizeThatFits(in: UIView.layoutFittingCompressedSize)
-        
-        if result == .zero {
-            return .init(width: 1, height: 1)
-        }
-        
-        return result
-    }*/
 }
 
 extension UIHostingCollectionViewController {

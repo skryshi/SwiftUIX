@@ -9,10 +9,21 @@ import SwiftUI
 public protocol PresentationLinkView: View {
     associatedtype Destination: View
     associatedtype Label: View
+    
+    init(destination: Destination, onDismiss: (() -> Void)?, @ViewBuilder label: () -> Label)
 }
 
-// MARK: - Concrete Implementations -
+// MARK: - Extensions -
 
-extension NavigationLink: PresentationLinkView {
+extension PresentationLinkView {
+    public init(destination: Destination, @ViewBuilder label: () -> Label) {
+        self.init(destination: destination, onDismiss: nil, label: label)
+    }
     
+    public init(
+        @ViewBuilder destination: () -> Destination,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.init(destination: destination(), onDismiss: nil, label: label)
+    }
 }

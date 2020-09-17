@@ -9,16 +9,17 @@ import SwiftUI
 #if os(iOS) || targetEnvironment(macCatalyst)
 
 public struct PopoverPresentationLink<Destination: View, Label: View>: PresentationLinkView {
-    private let destination: () -> Destination
+    private let destination: Destination
     private let label: Label
     private let onDismiss: (() -> ())?
     
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.environmentBuilder) private var environmentBuilder
     
     @State private var isPresented: Bool = false
     
     public init(
-        destination: @autoclosure @escaping () -> Destination,
+        destination: Destination,
         onDismiss: (() -> ())?,
         @ViewBuilder label: () -> Label
     ) {
@@ -28,28 +29,45 @@ public struct PopoverPresentationLink<Destination: View, Label: View>: Presentat
     }
     
     public init(
-        destination: @autoclosure @escaping () -> Destination,
+        destination: Destination,
         @ViewBuilder label: () -> Label
     ) {
         self.init(
-            destination: destination(),
+            destination: destination,
             onDismiss: nil,
             label: label
         )
     }
     
     public var body: some View {
-        Button(action: present, label: { label }).popover(
-            isPresented: $isPresented.onSet {
-                if self.isPresented == true && $0 == false {
-                    self._onDismiss()
+        Group {
+            if horizontalSizeClass == .compact {
+                Button(action: present, label: { label }).sheet(
+                    isPresented: $isPresented.onSet {
+                        if self.isPresented == true && $0 == false {
+                            self._onDismiss()
+                        }
+                    }
+                ) {
+                    CocoaHostingView(
+                        rootView: self.destination
+                            .mergeEnvironmentBuilder(self.environmentBuilder)
+                    )
+                }
+            } else {
+                Button(action: present, label: { label }).popover(
+                    isPresented: $isPresented.onSet {
+                        if self.isPresented == true && $0 == false {
+                            self._onDismiss()
+                        }
+                    }
+                ) {
+                    CocoaHostingView(
+                        rootView: self.destination
+                            .mergeEnvironmentBuilder(self.environmentBuilder)
+                    )
                 }
             }
-        ) {
-            CocoaHosted(
-                rootView: self.destination()
-                    .mergeEnvironmentBuilder(self.environmentBuilder)
-            )
         }
     }
     

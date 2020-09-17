@@ -7,25 +7,21 @@ import SwiftUI
 
 extension NavigationLink {
     public init(
-        action: @escaping () -> (),
-        destination: Destination,
+        @ViewBuilder destination: () -> Destination,
         @ViewBuilder label: () -> Label
     ) {
-        let isActive = MutableHeapWrapper(false)
-        
-        self.init(
-            destination: destination,
-            isActive: Binding(
-                get: { isActive.value },
-                set: {
-                    if !isActive.value && $0 {
-                        action()
-                    }
-                    
-                    isActive.value = $0
-                }
-            ),
-            label: label
-        )
+        self.init(destination: destination(), label: label)
+    }
+}
+
+extension NavigationLink where Label == Text {
+    /// Creates an instance that presents `destination`, with a Text label generated from a title string.
+    public init(_ title: LocalizedStringKey, @ViewBuilder destination: () -> Destination) {
+        self.init(title, destination: destination())
+    }
+    
+    /// Creates an instance that presents `destination`, with a Text label generated from a title string.
+    public init<S: StringProtocol>(_ title: S, @ViewBuilder destination: () -> Destination) {
+        self.init(title, destination: destination())
     }
 }

@@ -10,11 +10,11 @@ import SwiftUI
 fileprivate struct SelectionNavigator<Selection, Destination: View>: ViewModifier {
     private let selection: Binding<Selection?>
     private let destination: (Selection) -> Destination
-    private let onDismiss: (() -> ())?
+    private let onDismiss: (() -> Void)?
     
     public init(
         selection: Binding<Selection?>,
-        onDismiss: (() -> ())?,
+        onDismiss: (() -> Void)?,
         @ViewBuilder destination: @escaping (Selection) -> Destination
     ) {
         self.selection = selection
@@ -41,21 +41,65 @@ fileprivate struct SelectionNavigator<Selection, Destination: View>: ViewModifie
     }
     
     public func body(content: Content) -> some View {
-        ZStack {
-            NavigationLink(destination: LazyView {
-                self.destination(self.selection.wrappedValue!)
-            }, isActive: isActive) {
-                EmptyView().frame(CGSize.zero)
-            }
-            
-            content
-        }
+        content.background(
+            NavigationLink(
+                destination: LazyView {
+                    self.destination(self.selection.wrappedValue!)
+                },
+                isActive: isActive,
+                label: { ZeroSizeView() }
+            )
+        )
     }
 }
 
-// MARK: - Helpers -
+// MARK: - API -
 
 extension View {
+    public func navigate<Destination: View>(
+        to destination: Destination,
+        isActive: Binding<Bool>,
+        onDismiss: (() -> ())? = nil
+    ) -> some View {
+        background(
+            NavigationLink(
+                destination: destination,
+                isActive: isActive,
+                label: { ZeroSizeView() }
+            )
+        )
+    }
+    
+    public func navigate<Destination: View>(
+        isActive: Binding<Bool>,
+        onDismiss: (() -> ())? = nil,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        navigate(to: destination(), isActive: isActive, onDismiss: onDismiss)
+    }
+}
+
+extension View {
+    /// Adds a destination to present when this view is pressed.
+    public func onPress<Destination: View>(
+        navigateTo destination: Destination,
+        onDismiss: (() -> ())? = nil
+    ) -> some View {
+        modifier(NavigateOnPress(destination: destination, onDismiss: onDismiss))
+    }
+    
+    /// Adds a destination to present when this view is pressed.
+    public func onPress<Destination: View>(
+        navigateTo destination: Destination,
+        isActive: Binding<Bool>,
+        onDismiss: (() -> ())? = nil
+    ) -> some View {
+        modifier(NavigateOnPress(destination: destination, isActive: isActive, onDismiss: onDismiss))
+    }
+}
+
+extension View {
+    @available(*, deprecated, message: "This implementation is unreliable.")
     public func navigate<Selection, Destination: View>(
         selection: Binding<Selection?>,
         onDismiss: (() -> ())? = nil,
@@ -67,34 +111,39 @@ extension View {
             destination: destination
         ))
     }
+}
+
+// MARK: - Auxiliary Implementation -
+
+fileprivate struct NavigateOnPress<Destination: View>: ViewModifier {
+    let destination: Destination
+    let isActive: Binding<Bool>?
+    let onDismiss: (() -> Void)?
     
-    public func navigate<Destination: View>(
-        isActive: Binding<Bool>,
-        onDismiss: (() -> ())? = nil,
-        @ViewBuilder to destination: @escaping () -> Destination
-    ) -> some View {
-        navigate(
-            selection:  Binding<Void?>(
-                get: { isActive.wrappedValue ? () : nil },
-                set: { isActive.wrappedValue = $0 != nil }
-            ),
-            onDismiss: onDismiss,
-            destination: destination
-        )
+    @State var _internal_isActive: Bool = false
+    
+    init(
+        destination: Destination,
+        isActive: Binding<Bool>? = nil,
+        onDismiss: (() -> Void)? = nil
+    ) {
+        self.destination = destination
+        self.isActive = isActive
+        self.onDismiss = onDismiss
     }
     
-    public func navigate<Destination: View>(
-        isActive: Binding<Bool?>,
-        onDismiss: (() -> ())? = nil,
-        @ViewBuilder to destination: @escaping () -> Destination
-    ) -> some View {
-        navigate(
-            selection: Binding<Void?>(
-                get: { (isActive.wrappedValue ?? false) ? () : nil },
-                set: { isActive.wrappedValue = $0 != nil }
-            ),
-            onDismiss: onDismiss,
-            destination: destination
+    func body(content: Content) -> some View {
+        Button(toggle: isActive ?? $_internal_isActive) {
+            content.contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .background(
+            NavigationLink(
+                destination: destination,
+                isActive: isActive ?? $_internal_isActive,
+                label: { EmptyView() }
+            )
+            .hidden()
         )
     }
 }

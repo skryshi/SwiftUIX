@@ -22,188 +22,38 @@ extension View {
     }
 }
 
+// MARK: View.background
+
 extension View {
+    #if swift(>=5.3)
+    @_disfavoredOverload
     @inlinable
+    public func background(_ color: Color) -> some View {
+        background(PassthroughView(content: { color }))
+    }
+    #endif
+    
+    @inlinable
+    @available(*, deprecated, message: "Please use View.backgroundFill(_:) instead.")
     public func backgroundColor(_ color: Color) -> some View {
         background(color.edgesIgnoringSafeArea(.all))
     }
     
     @inlinable
-    public func backgroundPreference<K: PreferenceKey>(key _: K.Type = K.self, value: K.Value) -> some View {
-        background(EmptyView().preference(key: K.self, value: value))
+    public func backgroundFill(_ color: Color) -> some View {
+        background(color.edgesIgnoringSafeArea(.all))
+    }
+    
+    @inlinable
+    public func backgroundFill<BackgroundFill: View>(
+        _ fill: BackgroundFill,
+        alignment: Alignment = .center
+    ) -> some View {
+        background(fill, alignment: alignment)
     }
 }
 
-extension View {
-    @inlinable
-    public func inset(_ point: CGPoint) -> some View {
-        return offset(x: -point.x, y: -point.y)
-    }
-    
-    @inlinable
-    public func offset(_ point: CGPoint) -> some View {
-        return offset(x: point.x, y: point.y)
-    }
-}
-
-extension View {
-    @inlinable
-    public func relativeHeight(
-        _ ratio: CGFloat,
-        alignment: Alignment = .center
-    ) -> some View {
-        GeometryReader { geometry in
-            self.frame(
-                height: geometry.size.height * ratio,
-                alignment: alignment
-            )
-        }
-    }
-    
-    @inlinable
-    public func relativeWidth(
-        _ ratio: CGFloat,
-        alignment: Alignment = .center
-    ) -> some View {
-        GeometryReader { geometry in
-            self.frame(
-                width: geometry.size.width * ratio,
-                alignment: alignment
-            )
-        }
-    }
-    
-    @inlinable
-    public func relativeSize(
-        width widthRatio: CGFloat,
-        height heightRatio: CGFloat,
-        alignment: Alignment = .center
-    ) -> some View {
-        GeometryReader { geometry in
-            self.frame(
-                width: geometry.size.width * widthRatio,
-                height: geometry.size.height * heightRatio,
-                alignment: alignment
-            )
-        }
-    }
-    
-    /// Causes the view to fill into its superview.
-    @inlinable
-    public func fill(alignment: Alignment = .center) -> some View {
-        relativeSize(width: 1.0, height: 1.0)
-    }
-    
-    @inlinable
-    public func fit() -> some View {
-        GeometryReader { geometry in
-            self.frame(
-                width: geometry.size.minimumDimensionLength,
-                height: geometry.size.minimumDimensionLength
-            )
-        }
-    }
-}
-
-extension View {
-    @inlinable
-    public func frame(minimum dimensionLength: CGFloat, axis: Axis) -> some View {
-        switch axis {
-            case .horizontal:
-                return frame(minWidth: dimensionLength)
-            case .vertical:
-                return frame(minWidth: dimensionLength)
-        }
-    }
-    
-    /// Positions this view within an invisible frame with the specified size.
-    ///
-    /// Use this method to specify a fixed size for a view's width,
-    /// height, or both. If you only specify one of the dimensions, the
-    /// resulting view assumes this view's sizing behavior in the other
-    /// dimension.
-    @inlinable
-    public func frame(_ size: CGSize?, alignment: Alignment = .center) -> some View {
-        frame(width: size?.width, height: size?.height, alignment: alignment)
-    }
-    
-    /// Positions this view within an invisible frame with the specified size.
-    ///
-    /// Use this method to specify a fixed size for a view's width,
-    /// height, or both. If you only specify one of the dimensions, the
-    /// resulting view assumes this view's sizing behavior in the other
-    /// dimension.
-    @inlinable
-    public func frame(minimum size: CGSize?, alignment: Alignment = .center) -> some View {
-        frame(minWidth: size?.width, minHeight: size?.height, alignment: alignment)
-    }
-    
-    /// Positions this view within an invisible frame with the specified size.
-    ///
-    /// Use this method to specify a fixed size for a view's width,
-    /// height, or both. If you only specify one of the dimensions, the
-    /// resulting view assumes this view's sizing behavior in the other
-    /// dimension.
-    @inlinable
-    public func frame(
-        minimum minSize: CGSize?,
-        maximum maxSize: CGSize?,
-        alignment: Alignment = .center
-    ) -> some View {
-        frame(
-            minWidth: minSize?.width,
-            maxWidth: maxSize?.width,
-            minHeight: minSize?.height,
-            maxHeight: maxSize?.height,
-            alignment: alignment
-        )
-    }
-    
-    @inlinable
-    public func widthZeroClipped(_ clipped: Bool = true) -> some View {
-        width(clipped ? .zero : nil)
-            .clipped()
-    }
-    
-    @inlinable
-    public func heightZeroClipped(_ clipped: Bool = true) -> some View {
-        height(clipped ? .zero : nil)
-            .clipped()
-    }
-    
-    @inlinable
-    public func frameZeroClipped(_ clipped: Bool = true) -> some View {
-        frame(clipped ? .zero : nil)
-            .clipped()
-    }
-}
-
-extension View {
-    @inlinable
-    public func width(_ width: CGFloat?) -> some View {
-        frame(width: width)
-    }
-    
-    @inlinable
-    public func height(_ height: CGFloat?) -> some View {
-        frame(height: height)
-    }
-    
-    @inlinable
-    public func maxWidth(_ width: CGFloat?) -> some View {
-        frame(maxWidth: width)
-    }
-    
-    @inlinable
-    public func maxHeight(_ height: CGFloat?) -> some View {
-        frame(maxHeight: height)
-    }
-    
-    @inlinable
-    public func square(_ sideLength: CGFloat?) -> some View {
-        frame(width: sideLength, height: sideLength)
-    }
-}
+// MARK: View.hidden
 
 extension View {
     @inlinable
@@ -218,20 +68,45 @@ extension View {
     }
 }
 
-#if os(macOS)
+// MARK: View.offset
 
 extension View {
-    @available(*, deprecated, message: "This function is currently unavailable on macOS.")
     @inlinable
-    public func navigationBarTitle(_ title: String) -> some View {
-        return self
+    public func inset(_ point: CGPoint) -> some View {
+        offset(x: -point.x, y: -point.y)
     }
     
-    @available(*, deprecated, message: "This function is currently unavailable on macOS.")
     @inlinable
-    public func navigationBarItems<V: View>(trailing: V) -> some View {
-        return self
+    public func inset(_ length: CGFloat) -> some View {
+        offset(x: -length, y: -length)
+    }
+    
+    @inlinable
+    public func offset(_ point: CGPoint) -> some View {
+        offset(x: point.x, y: point.y)
+    }
+    
+    @inlinable
+    public func offset(_ length: CGFloat) -> some View {
+        offset(x: length, y: length)
     }
 }
 
-#endif
+// MARK: View.padding
+
+extension View {
+    #if swift(>=5.3)
+    /// A view that pads this view inside the specified edge insets with a system-calculated amount of padding and a color.
+    @_disfavoredOverload
+    @inlinable
+    public func padding(_ color: Color) -> some View {
+        padding().background(color)
+    }
+    #else
+    /// A view that pads this view inside the specified edge insets with a system-calculated amount of padding and a color.
+    @inlinable
+    public func padding(_ color: Color) -> some View {
+        padding().background(color)
+    }
+    #endif
+}

@@ -5,10 +5,26 @@
 import Swift
 import SwiftUI
 
+/// A type that manages an active presentation.
 public protocol PresentationManager: ViewInteractor {
-    var isPresenting: Bool { get }
+    var isPresented: Bool { get }
     
     func dismiss()
+}
+
+// MARK: - API -
+
+/// A dynamic action that dismisses an active presentation.
+public struct DismissPresentation: DynamicAction {
+    @Environment(\.presentationManager) var presentationManager
+    
+    public init() {
+        
+    }
+    
+    public func perform() {
+        presentationManager.dismiss()
+    }
 }
 
 // MARK: - Auxiliary Implementation -
@@ -35,8 +51,8 @@ extension EnvironmentValues {
 
 // MARK: - Concrete Implementations -
 
-extension Binding: PresentationManager where Value: PresentationModeProtocol {
-    public var isPresenting: Bool {
+extension Binding: PresentationManager where Value == PresentationMode {
+    public var isPresented: Bool {
         return wrappedValue.isPresented
     }
     

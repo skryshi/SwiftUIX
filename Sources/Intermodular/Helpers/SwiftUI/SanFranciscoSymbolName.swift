@@ -1712,22 +1712,12 @@ public enum SanFranciscoSymbolName: String, CaseIterable {
 
 // MARK: - Helpers -
 
-#if os(macOS)
-
 public extension Image {
-    @available(*, deprecated, message: "This function is currently unavailable on macOS.")
     init(systemName: SanFranciscoSymbolName) {
+        #if os(macOS)
+        fatalError()
+        #else
         self.init(systemName: systemName.rawValue)
+        #endif
     }
 }
-
-#else
-
-public extension Image {
-    @inlinable
-    init(systemName: SanFranciscoSymbolName) {
-        self.init(systemName: systemName.rawValue)
-    }
-}
-
-#endif

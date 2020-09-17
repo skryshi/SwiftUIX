@@ -19,10 +19,6 @@ public struct CollectionView<SectionModel: Identifiable, Item: Identifiable, Dat
     
     private var scrollViewConfiguration = CocoaScrollViewConfiguration<AnyView>()
     
-    @Environment(\.collectionViewLayout) var collectionViewLayout
-    @Environment(\.initialContentAlignment) var initialContentAlignment
-    @Environment(\.isScrollEnabled) var isScrollEnabled
-    
     public init(
         _ data: Data,
         sectionHeader: @escaping (SectionModel) -> SectionHeader,
@@ -38,7 +34,7 @@ public struct CollectionView<SectionModel: Identifiable, Item: Identifiable, Dat
     public func makeUIViewController(context: Context) -> UIViewControllerType {
         .init(
             data,
-            collectionViewLayout: collectionViewLayout._toUICollectionViewLayout(),
+            collectionViewLayout: context.environment.collectionViewLayout._toUICollectionViewLayout(),
             sectionHeader: sectionHeader,
             sectionFooter: sectionFooter,
             rowContent: rowContent
@@ -53,7 +49,7 @@ public struct CollectionView<SectionModel: Identifiable, Item: Identifiable, Dat
         
         uiViewController.collectionView.configure(with: scrollViewConfiguration)
         
-        let newCollectionViewLayout = collectionViewLayout._toUICollectionViewLayout()
+        let newCollectionViewLayout = context.environment.collectionViewLayout._toUICollectionViewLayout()
         
         if uiViewController.collectionViewLayout !== newCollectionViewLayout, uiViewController.collectionViewLayout != newCollectionViewLayout {
             uiViewController.collectionView.setCollectionViewLayout(newCollectionViewLayout, animated: true)
@@ -101,7 +97,11 @@ extension CollectionView {
     }
 }
 
-extension CollectionView where Data: RangeReplaceableCollection, SectionModel == Never, SectionHeader == Never, SectionFooter == Never {
+extension CollectionView where
+    Data: RangeReplaceableCollection,
+    SectionModel == Never, SectionHeader == Never,
+    SectionFooter == Never
+{
     public init<Items: RandomAccessCollection>(
         _ items: Items,
         @ViewBuilder rowContent: @escaping (Item) -> RowContent
@@ -119,16 +119,21 @@ extension CollectionView where Data: RangeReplaceableCollection, SectionModel ==
     }
 }
 
-extension CollectionView where Data == Array<ListSection<SectionModel, Item>>, SectionModel == Never, SectionHeader == Never, SectionFooter == Never {
-    public init<Items: RandomAccessCollection>(
+extension CollectionView where
+    Data == Array<ListSection<SectionModel, Item>>,
+    SectionModel == Never, SectionHeader == Never,
+    SectionFooter == Never
+{
+    public init<_Item, _ItemID, Items: RandomAccessCollection>(
         _ items: Items,
-        @ViewBuilder rowContent: @escaping (Item) -> RowContent
-    ) where Items.Element == Item {
+        id: KeyPath<_Item, _ItemID>,
+        @ViewBuilder rowContent: @escaping (_Item) -> RowContent
+    ) where Items.Element == _Item, Item == KeyPathHashIdentifiableValue<_Item, _ItemID> {
         self.init(
-            [.init(items: items)],
+            [.init(items: items.map({ KeyPathHashIdentifiableValue(value: $0, keyPath: id) }))],
             sectionHeader: Never.produce,
             sectionFooter: Never.produce,
-            rowContent: rowContent
+            rowContent: { rowContent($0.value) }
         )
     }
 }

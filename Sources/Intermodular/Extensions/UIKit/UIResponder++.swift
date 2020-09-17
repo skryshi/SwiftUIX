@@ -20,7 +20,9 @@ extension UIResponder {
 extension UIResponder {
     private static weak var _firstResponder: UIResponder?
     
+    @available(macCatalystApplicationExtension, unavailable)
     @available(iOSApplicationExtension, unavailable)
+    @available(tvOSApplicationExtension, unavailable)
     static var firstResponder: UIResponder? {
         _firstResponder = nil
         

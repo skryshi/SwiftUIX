@@ -21,7 +21,7 @@ public struct TextView<Label: View>: View {
             label
                 .visible(text.isEmpty)
                 .animation(.none)
-
+            
             _TextView(
                 text: $text,
                 onEditingChanged: onEditingChanged,
@@ -31,26 +31,32 @@ public struct TextView<Label: View>: View {
     }
 }
 
-fileprivate struct _TextView {
-    @Binding private var text: String
-    
-    private var onEditingChanged: (Bool) -> Void
-    private var onCommit: () -> Void
-    
-    @Environment(\.isScrollEnabled) private var isScrollEnabled
-    
-    init(
+// MARK: - API -
+
+extension TextView where Label == EmptyView {
+    public init(
         text: Binding<String>,
         onEditingChanged: @escaping (Bool) -> Void = { _ in },
         onCommit: @escaping () -> Void = { }
     ) {
+        self.label = EmptyView()
         self._text = text
         self.onEditingChanged = onEditingChanged
         self.onCommit = onCommit
     }
+    
+    public init(
+        text: Binding<String?>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onCommit: @escaping () -> Void = { }
+    ) {
+        self.init(
+            text: text.withDefaultValue(String()),
+            onEditingChanged: onEditingChanged,
+            onCommit: onCommit
+        )
+    }
 }
-
-// MARK: - Extensions -
 
 extension TextView where Label == Text {
     public init<S: StringProtocol>(
@@ -64,13 +70,44 @@ extension TextView where Label == Text {
         self.onEditingChanged = onEditingChanged
         self.onCommit = onCommit
     }
+    
+    public init<S: StringProtocol>(
+        _ title: S,
+        text: Binding<String?>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onCommit: @escaping () -> Void = { }
+    ) {
+        self.init(
+            title,
+            text: text.withDefaultValue(String()),
+            onEditingChanged: onEditingChanged,
+            onCommit: onCommit
+        )
+    }
+}
+
+// MARK: - Implementation -
+
+fileprivate struct _TextView {
+    @Binding private var text: String
+    
+    private var onEditingChanged: (Bool) -> Void
+    private var onCommit: () -> Void
+    
+    init(
+        text: Binding<String>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onCommit: @escaping () -> Void = { }
+    ) {
+        self._text = text
+        self.onEditingChanged = onEditingChanged
+        self.onCommit = onCommit
+    }
 }
 
 #if os(iOS) || os(tvOS)
 
 import UIKit
-
-// MARK: - Protocol Implementations -
 
 extension _TextView: UIViewRepresentable {
     typealias UIViewType = _UITextView
@@ -96,14 +133,14 @@ extension _TextView: UIViewRepresentable {
         }
     }
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    func makeUIView(context: Context) -> _UITextView {
-        _UITextView().then {
+    func makeUIView(context: Context) -> UIViewType {
+        let result = _UITextView().then {
             $0.delegate = context.coordinator
         }
+        
+        updateUIView(result, context: context)
+        
+        return result
     }
     
     func updateUIView(_ uiView: UIViewType, context: Context) {
@@ -114,14 +151,15 @@ extension _TextView: UIViewRepresentable {
             cursorOffset = uiView.offset(from: uiView.beginningOfDocument, to: selectedRange.start)
         }
         
-        if let font = context.environment.font {
-            uiView.font = font.toUIFont()
-        } else {
-            uiView.font = .preferredFont(forTextStyle: .body)
-        }
-        
         uiView.backgroundColor = nil
-        uiView.isScrollEnabled = isScrollEnabled
+        
+        // `UITextView`'s default font is smaller than SwiftUI's default font.
+        // `.preferredFont(forTextStyle: .body)` is used when `context.environment.font` is nil.
+        uiView.font = context.environment.font?.toUIFont() ?? .preferredFont(forTextStyle: .body)
+        #if !os(tvOS)
+        uiView.isEditable = context.environment.isEnabled
+        #endif
+        uiView.isScrollEnabled = context.environment.isScrollEnabled
         uiView.isSelectable = true
         uiView.text = text
         uiView.textContainerInset = .zero
@@ -130,6 +168,10 @@ extension _TextView: UIViewRepresentable {
         if let cursorOffset = cursorOffset, let position = uiView.position(from: uiView.beginningOfDocument, offset: cursorOffset), let textRange = uiView.textRange(from: position, to: position) {
             uiView.selectedTextRange = textRange
         }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
     }
 }
 

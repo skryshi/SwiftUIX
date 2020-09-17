@@ -11,7 +11,7 @@ import UIKit
 /// A view that paginates its children along a given axis.
 public struct PaginationView<Page: View>: View {
     @usableFromInline
-    let pages: [Page]
+    let content: AnyForEach<Page>
     @usableFromInline
     let axis: Axis
     @usableFromInline
@@ -22,24 +22,31 @@ public struct PaginationView<Page: View>: View {
     @usableFromInline
     var pageIndicatorAlignment: Alignment
     @usableFromInline
+    var interPageSpacing: CGFloat?
+    @usableFromInline
     var cyclesPages: Bool = false
     @usableFromInline
     var initialPageIndex: Int?
     @usableFromInline
     var currentPageIndex: Binding<Int>?
     
-    @State private var _currentPageIndex = 0
+    /// The current page index internally used by `PaginationView`.
+    /// Never access this directly, it is marked public as a workaround to a compiler bug.
+    @inlinable
+    @State public var _currentPageIndex = 0
     
-    @DelayedState private var progressionController: ProgressionController?
+    /// Never access this directly, it is marked public as a workaround to a compiler bug.
+    @inlinable
+    @DelayedState public var _progressionController: ProgressionController?
     
-    @inline(never)
+    @inlinable
     public init(
-        pages: [Page],
+        content: AnyForEach<Page>,
         axis: Axis = .horizontal,
         transitionStyle: UIPageViewController.TransitionStyle = .scroll,
         showsIndicators: Bool = true
     ) {
-        self.pages = pages
+        self.content = content
         self.axis = axis
         self.transitionStyle = transitionStyle
         self.showsIndicators = showsIndicators
@@ -52,7 +59,103 @@ public struct PaginationView<Page: View>: View {
         }
     }
     
-    @inline(never)
+    @inlinable
+    public var body: some View {
+        ZStack(alignment: pageIndicatorAlignment) {
+            _PaginationView(
+                content: content,
+                axis: axis,
+                transitionStyle: transitionStyle,
+                showsIndicators: showsIndicators,
+                pageIndicatorAlignment: pageIndicatorAlignment,
+                interPageSpacing: interPageSpacing,
+                cyclesPages: cyclesPages,
+                initialPageIndex: initialPageIndex,
+                currentPageIndex: currentPageIndex ?? $_currentPageIndex,
+                progressionController: $_progressionController
+            )
+            
+            if showsIndicators && (axis == .vertical || pageIndicatorAlignment != .center) {
+                PageControl(
+                    numberOfPages: content.count,
+                    currentPage: currentPageIndex ?? $_currentPageIndex
+                ).rotationEffect(
+                    axis == .vertical
+                        ? .init(degrees: 90)
+                        : .init(degrees: 0)
+                )
+            }
+        }
+        .environment(\.progressionController, _progressionController)
+    }
+}
+
+extension PaginationView {
+    @inlinable
+    public init<Data: RandomAccessCollection, ID: Hashable>(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true,
+        @ViewBuilder content: @escaping (Data.Element) -> Page
+    ) {
+        self.init(
+            content: .init(data, id: id, content: content),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
+    public init<Data, ID>(
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true,
+        content: () -> ForEach<Data, ID, Page>
+    ) {
+        self.init(
+            content: .init(content()),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
+    public init<Data, ID>(
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true,
+        content: () -> ForEach<Data, ID, Page>
+    ) where Data.Element: Identifiable {
+        self.init(
+            content: .init(content()),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+}
+
+extension PaginationView {
+    @inlinable
+    public init(
+        pages: [Page],
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true
+    ) {
+        self.init(
+            content: AnyForEach(pages.indices, id: \.self, content: { pages[$0] }),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
     public init(
         axis: Axis = .horizontal,
         transitionStyle: UIPageViewController.TransitionStyle = .scroll,
@@ -66,53 +169,6 @@ public struct PaginationView<Page: View>: View {
             showsIndicators: showsIndicators
         )
     }
-    
-    public var body: some View {
-        ZStack(alignment: pageIndicatorAlignment) {
-            _PaginationView(
-                pages: pages,
-                axis: axis,
-                transitionStyle: transitionStyle,
-                showsIndicators: showsIndicators,
-                pageIndicatorAlignment: pageIndicatorAlignment,
-                cyclesPages: cyclesPages,
-                initialPageIndex: initialPageIndex,
-                currentPageIndex: currentPageIndex ?? $_currentPageIndex,
-                progressionController: $progressionController
-            )
-            
-            if showsIndicators && (axis == .vertical || pageIndicatorAlignment != .center) {
-                PageControl(
-                    numberOfPages: pages.count,
-                    currentPage: currentPageIndex ?? $_currentPageIndex
-                ).rotationEffect(
-                    axis == .vertical
-                        ? .init(degrees: 90)
-                        : .init(degrees: 0)
-                )
-            }
-        }
-        .environment(\.progressionController, progressionController)
-    }
-}
-
-extension PaginationView {
-    @inline(never)
-    public init<Data, ID>(
-        axis: Axis = .horizontal,
-        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
-        showsIndicators: Bool = true,
-        @ViewBuilder pages: () -> ForEach<Data, ID, Page>
-    ) {
-        let _pages = pages()
-        
-        self.init(
-            pages: _pages.data.map(_pages.content),
-            axis: axis,
-            transitionStyle: transitionStyle,
-            showsIndicators: showsIndicators
-        )
-    }
 }
 
 // MARK: - API -
@@ -121,6 +177,11 @@ extension PaginationView {
     @inlinable
     public func pageIndicatorAlignment(_ alignment: Alignment) -> Self {
         then({ $0.pageIndicatorAlignment = alignment })
+    }
+    
+    @inlinable
+    public func interPageSpacing(_ interPageSpacing: CGFloat) -> Self {
+        then({ $0.interPageSpacing = interPageSpacing })
     }
     
     @inlinable
