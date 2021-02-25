@@ -11,7 +11,7 @@ import UIKit
 public class UIHostingPageViewController<Page: View>: UIPageViewController {
     struct PageContainer: View {
         let index: AnyIndex
-        let page: Page
+        var page: Page
         
         var body: some View {
             page
@@ -19,6 +19,16 @@ public class UIHostingPageViewController<Page: View>: UIPageViewController {
     }
     
     class PageContentController: UIHostingController<PageContainer> {
+        override init(rootView: PageContainer) {
+            super.init(rootView: rootView)
+            
+            view.backgroundColor = .clear
+        }
+        
+        @objc required dynamic init?(coder aDecoder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
         override open func viewDidLoad() {
             super.viewDidLoad()
             
@@ -38,9 +48,22 @@ public class UIHostingPageViewController<Page: View>: UIPageViewController {
         }
     }
     
-    var content: AnyForEach<Page>?
+    var _isAnimated: Bool = true
+    
+    var content: AnyForEach<Page>? {
+        didSet {
+            if let content = content {
+                for viewController in (viewControllers ?? []).map({ $0 as! PageContentController }) {
+                    viewController.rootView.page = content.content(content.data[viewController.rootView.index])
+                }
+            }
+        }
+    }
+    
     var cyclesPages: Bool = false
-            
+    
+    var isInitialPageIndexApplied: Bool = false
+    
     var currentPageIndex: AnyIndex? {
         get {
             guard let currentViewController = viewControllers?.first as? PageContentController else {
@@ -50,7 +73,7 @@ public class UIHostingPageViewController<Page: View>: UIPageViewController {
             return currentViewController.rootView.index
         } set {
             guard let newValue = newValue else {
-                return setViewControllers([], direction: .forward, animated: true, completion: nil)
+                return setViewControllers([], direction: .forward, animated: _isAnimated, completion: nil)
             }
             
             guard let currentPageIndex = currentPageIndex else {
@@ -73,7 +96,7 @@ public class UIHostingPageViewController<Page: View>: UIPageViewController {
                 setViewControllers(
                     [viewController],
                     direction: direction,
-                    animated: true
+                    animated: _isAnimated
                 )
             }
         }
@@ -90,7 +113,7 @@ public class UIHostingPageViewController<Page: View>: UIPageViewController {
         
         return content.data.distance(from: content.data.startIndex, to: currentPageIndex)
     }
-
+    
     var previousPageIndex: AnyIndex? {
         guard let currentPageIndex = currentPageIndex else {
             return nil
@@ -127,7 +150,7 @@ extension UIHostingPageViewController {
             
             return nil
         }
-                
+        
         let index = viewController.rootView.index == content.data.startIndex
             ? (cyclesPages ? content.data.indices.last : nil)
             : content.data.index(before: viewController.rootView.index)

@@ -2,7 +2,7 @@
 // Copyright (c) Vatsal Manot
 //
 
-#if os(iOS) || os(macOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(macOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
 import LinkPresentation
 import Swift
@@ -55,6 +55,18 @@ extension LinkPresentationView {
     }
     
     @inlinable
+    public init(
+        url: URL,
+        metadata: LPLinkMetadata?,
+        @ViewBuilder placeholder: () -> Placeholder
+    ) {
+        self.url = url
+        self.metadata = metadata
+        self.onMetadataFetchCompletion = nil
+        self.placeholder = placeholder()
+    }
+    
+    @inlinable
     public init(metadata: LPLinkMetadata, @ViewBuilder placeholder: () -> Placeholder) {
         self.url = nil
         self.metadata = metadata
@@ -75,6 +87,14 @@ extension LinkPresentationView where Placeholder == EmptyView {
     }
     
     @inlinable
+    public init(
+        url: URL,
+        metadata: LPLinkMetadata?
+    ) {
+        self.init(url: url, metadata: metadata, placeholder: { EmptyView() })
+    }
+    
+    @inlinable
     public init(metadata: LPLinkMetadata) {
         self.init(metadata: metadata) {
             EmptyView()
@@ -90,11 +110,12 @@ extension LinkPresentationView {
 
 // MARK: - Implementation -
 
+@usableFromInline
 struct _LinkPresentationView<Placeholder: View>: Identifiable, View {
     @usableFromInline
     @Environment(\.errorContext) var errorContext
     @usableFromInline
-    @UniqueCache(for: Self.self) var cache
+    @_UniqueStateCache(for: Self.self) var cache
     
     let url: URL?
     @usableFromInline
@@ -118,6 +139,7 @@ struct _LinkPresentationView<Placeholder: View>: Identifiable, View {
     @usableFromInline
     @State var proposedMinHeight: CGFloat?
     
+    @usableFromInline
     var id: some Hashable {
         url ?? metadata?.originalURL
     }
@@ -126,6 +148,7 @@ struct _LinkPresentationView<Placeholder: View>: Identifiable, View {
         placeholder is EmptyView ? false : (metadata ?? fetchedMetadata) == nil
     }
     
+    @usableFromInline
     var body: some View {
         ZStack {
             _LPLinkViewRepresentable<Placeholder>(
@@ -134,10 +157,11 @@ struct _LinkPresentationView<Placeholder: View>: Identifiable, View {
                 proposedMinHeight: $proposedMinHeight
             )
             .equatable()
-            .minHeight(proposedMinHeight)
+            .frame(minHeight: proposedMinHeight)
             .visible(!isPlaceholderVisible)
             
             placeholder
+                .accessibility(hidden: placeholder is EmptyView)
                 .visible(isPlaceholderVisible)
         }
         .onAppear(perform: fetchMetadata)

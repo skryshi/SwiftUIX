@@ -60,35 +60,56 @@ public struct PaginationView<Page: View>: View {
     }
     
     @inlinable
+    public init<Data, ID>(
+        content: ForEach<Data, ID, Page>,
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true
+    ) {
+        self.init(
+            content: .init(content),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
     public var body: some View {
-        ZStack(alignment: pageIndicatorAlignment) {
-            _PaginationView(
-                content: content,
-                axis: axis,
-                transitionStyle: transitionStyle,
-                showsIndicators: showsIndicators,
-                pageIndicatorAlignment: pageIndicatorAlignment,
-                interPageSpacing: interPageSpacing,
-                cyclesPages: cyclesPages,
-                initialPageIndex: initialPageIndex,
-                currentPageIndex: currentPageIndex ?? $_currentPageIndex,
-                progressionController: $_progressionController
-            )
-            
-            if showsIndicators && (axis == .vertical || pageIndicatorAlignment != .center) {
-                PageControl(
-                    numberOfPages: content.count,
-                    currentPage: currentPageIndex ?? $_currentPageIndex
-                ).rotationEffect(
-                    axis == .vertical
-                        ? .init(degrees: 90)
-                        : .init(degrees: 0)
+        if content.isEmpty {
+            EmptyView()
+        } else {
+            ZStack(alignment: pageIndicatorAlignment) {
+                _PaginationView(
+                    content: content,
+                    axis: axis,
+                    transitionStyle: transitionStyle,
+                    showsIndicators: showsIndicators,
+                    pageIndicatorAlignment: pageIndicatorAlignment,
+                    interPageSpacing: interPageSpacing,
+                    cyclesPages: cyclesPages,
+                    initialPageIndex: initialPageIndex,
+                    currentPageIndex: currentPageIndex ?? $_currentPageIndex,
+                    progressionController: $_progressionController
                 )
+                
+                if showsIndicators && (axis == .vertical || pageIndicatorAlignment != .center) {
+                    PageControl(
+                        numberOfPages: content.count,
+                        currentPage: currentPageIndex ?? $_currentPageIndex
+                    ).rotationEffect(
+                        axis == .vertical
+                            ? .init(degrees: 90)
+                            : .init(degrees: 0)
+                    )
+                }
             }
+            .environment(\.progressionController, _progressionController)
         }
-        .environment(\.progressionController, _progressionController)
     }
 }
+
+// MARK: - Initializers -
 
 extension PaginationView {
     @inlinable
@@ -155,6 +176,7 @@ extension PaginationView {
         )
     }
     
+    @_disfavoredOverload
     @inlinable
     public init(
         axis: Axis = .horizontal,
@@ -164,6 +186,47 @@ extension PaginationView {
     ) {
         self.init(
             pages: content(),
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
+    public init<C0: View, C1: View>(
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true,
+        @ViewBuilder content: () -> TupleView<(C0, C1)>
+    ) where Page == AnyView {
+        let content = content()
+        
+        self.init(
+            pages: [
+                content.value.0.eraseToAnyView(),
+                content.value.1.eraseToAnyView()
+            ],
+            axis: axis,
+            transitionStyle: transitionStyle,
+            showsIndicators: showsIndicators
+        )
+    }
+    
+    @inlinable
+    public init<C0: View, C1: View, C2: View>(
+        axis: Axis = .horizontal,
+        transitionStyle: UIPageViewController.TransitionStyle = .scroll,
+        showsIndicators: Bool = true,
+        @ViewBuilder content: () -> TupleView<(C0, C1, C2)>
+    ) where Page == AnyView {
+        let content = content()
+        
+        self.init(
+            pages: [
+                content.value.0.eraseToAnyView(),
+                content.value.1.eraseToAnyView(),
+                content.value.2.eraseToAnyView()
+            ],
             axis: axis,
             transitionStyle: transitionStyle,
             showsIndicators: showsIndicators

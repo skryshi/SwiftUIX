@@ -10,7 +10,8 @@ import SwiftUI
 public struct CocoaHostingControllerContent<Content: View>: View  {
     weak var parent: CocoaController?
     
-    var content: Content
+    public var content: Content
+    
     var presentationCoordinator: CocoaPresentationCoordinator?
     
     init(
@@ -24,27 +25,9 @@ public struct CocoaHostingControllerContent<Content: View>: View  {
     
     public var body: some View {
         content
-            .environment(\.cocoaPresentationCoordinator, presentationCoordinator)
-            .environment(\.presenter, presentationCoordinator)
-            .environment(\.presentationManager, CocoaPresentationMode(coordinator: presentationCoordinator))
-            .onPreferenceChange(ViewDescription.PreferenceKey.self, perform: {
-                if let parent = self.parent as? CocoaHostingController<EnvironmentalAnyView> {
-                    parent.subviewDescriptions = $0
-                }
-            })
-            .onPreferenceChange(AnyModalPresentation.PreferenceKey.self) { presentation in
-                if let presentation = presentation {
-                    self.presentationCoordinator?.present(presentation)
-                } else {
-                    self.presentationCoordinator?.dismiss()
-                }
-            }
-            .preference(key: AnyModalPresentation.PreferenceKey.self, value: nil)
-            .onPreferenceChange(IsModalInPresentation.self) {
-                self.presentationCoordinator?.setIsInPresentation($0)
-            }
+            .modifier(_SetAppKitOrUIKitViewControllerEnvironmentValue(_appKitOrUIKitViewController: parent))
+            .modifier(_UseCocoaPresentationCoordinator(coordinator: presentationCoordinator))
     }
 }
 
 #endif
-

@@ -7,28 +7,10 @@ import SwiftUI
 
 extension Binding {
     @inlinable
-    public static func receiveValue<Wrapped>(_ receiveValue: @escaping (Wrapped?) -> ()) -> Binding where Optional<Wrapped> == Value {
+    public func map<T>(_ keyPath: WritableKeyPath<Value, T>) -> Binding<T> {
         .init(
-            get: { nil },
-            set: receiveValue
-        )
-    }
-}
-
-extension Binding {
-    @inlinable
-    public func forceCast<U>(to type: U.Type) -> Binding<U> {
-        return .init(
-            get: { self.wrappedValue as! U },
-            set: { self.wrappedValue = $0 as! Value }
-        )
-    }
-    
-    @inlinable
-    public func withDefaultValue<T>(_ defaultValue: T) -> Binding<T> where Value == Optional<T> {
-        return .init(
-            get: { self.wrappedValue ?? defaultValue },
-            set: { self.wrappedValue = $0 }
+            get: { self.wrappedValue[keyPath: keyPath] },
+            set: { self.wrappedValue[keyPath: keyPath] = $0 }
         )
     }
 }
@@ -49,7 +31,7 @@ extension Binding {
             set: { self.wrappedValue = $0; body($0) }
         )
     }
-        
+    
     @inlinable
     public func onChange(perform action: @escaping (Value) -> ()) -> Self {
         return .init(
@@ -60,7 +42,7 @@ extension Binding {
     
     @inlinable
     public func onChange(toggle value: Binding<Bool>) -> Self {
-        onChange { _ in 
+        onChange { _ in
             value.wrappedValue.toggle()
         }
     }
@@ -68,18 +50,53 @@ extension Binding {
 
 extension Binding {
     @inlinable
+    public func forceCast<U>(to type: U.Type) -> Binding<U> {
+        return .init(
+            get: { self.wrappedValue as! U },
+            set: { self.wrappedValue = $0 as! Value }
+        )
+    }
+    
+    @inlinable
+    public func withDefaultValue<T>(_ defaultValue: T) -> Binding<T> where Value == Optional<T> {
+        return .init(
+            get: { self.wrappedValue ?? defaultValue },
+            set: { self.wrappedValue = $0 }
+        )
+    }
+    
+    @inlinable
     public func isNil<Wrapped>() -> Binding<Bool> where Optional<Wrapped> == Value {
         .init(
             get: { self.wrappedValue == nil },
             set: { isNil in self.wrappedValue = isNil ? nil : self.wrappedValue  }
         )
     }
-
+    
     @inlinable
     public func isNotNil<Wrapped>() -> Binding<Bool> where Optional<Wrapped> == Value {
         .init(
             get: { self.wrappedValue != nil },
             set: { isNotNil in self.wrappedValue = isNotNil ? self.wrappedValue : nil  }
+        )
+    }
+    
+    public func nilIfEmpty<T: Collection>() -> Binding where Value == Optional<T> {
+        Binding(
+            get: {
+                guard let wrappedValue = self.wrappedValue, !wrappedValue.isEmpty else {
+                    return nil
+                }
+                
+                return wrappedValue
+            },
+            set: { newValue in
+                if let newValue = newValue {
+                    self.wrappedValue = newValue.isEmpty ? nil : newValue
+                } else {
+                    self.wrappedValue = nil
+                }
+            }
         )
     }
 }

@@ -6,9 +6,9 @@ import Foundation
 import Swift
 
 extension UserDefaults {
-    public func decode<Value: Codable>(_ type: Value.Type = Value.self, forKey key: String) throws -> Value? {
+    func decode<Value: Codable>(_ type: Value.Type = Value.self, forKey key: String) throws -> Value? {
         if type is URL.Type || type is Optional<URL>.Type {
-            return try decode(String.self, forKey: key).flatMap(URL.init(string:)) as? Value
+            return url(forKey: key) as? Value
         } else if let value = value(forKey: key) as? Value {
             return value
         } else if let data = value(forKey: key) as? Data {
@@ -17,21 +17,21 @@ extension UserDefaults {
             return nil
         }
     }
-        
-    public func encode<Value: Codable>(_ value: Value, forKey key: String) throws {
+    
+    func encode<Value: Codable>(_ value: Value, forKey key: String) throws {
         if let value = value as? _opaque_Optional, !value.isNotNil {
             removeObject(forKey: key)
-        } else if let value = value as? UserDefaultsPrimitve {
+        } else if let value = value as? UserDefaultsPrimitive {
             setValue(value, forKey: key)
-        } else if let value = value as? URL {
-            setValue(value.path, forKey: key)
+        } else if let url = value as? URL {
+            set(url, forKey: key)
         } else {
             setValue(try PropertyListEncoder().encode(value), forKey: key)
         }
     }
 }
 
-// MARK: - Helpers-
+// MARK: - Auxiliary Implementation -
 
 private protocol _opaque_Optional {
     var isNotNil: Bool { get }
@@ -43,62 +43,62 @@ extension Optional: _opaque_Optional {
     }
 }
 
-private protocol UserDefaultsPrimitve {
-
-}
-
-extension Bool: UserDefaultsPrimitve {
+fileprivate protocol UserDefaultsPrimitive {
     
 }
 
-extension Double: UserDefaultsPrimitve {
+extension Bool: UserDefaultsPrimitive {
     
 }
 
-extension Float: UserDefaultsPrimitve {
+extension Double: UserDefaultsPrimitive {
     
 }
 
-extension Int: UserDefaultsPrimitve {
+extension Float: UserDefaultsPrimitive {
     
 }
 
-extension Int8: UserDefaultsPrimitve {
+extension Int: UserDefaultsPrimitive {
     
 }
 
-extension Int16: UserDefaultsPrimitve {
+extension Int8: UserDefaultsPrimitive {
     
 }
 
-extension Int32: UserDefaultsPrimitve {
+extension Int16: UserDefaultsPrimitive {
     
 }
 
-extension Int64: UserDefaultsPrimitve {
+extension Int32: UserDefaultsPrimitive {
     
 }
 
-extension String: UserDefaultsPrimitve {
+extension Int64: UserDefaultsPrimitive {
     
 }
 
-extension UInt: UserDefaultsPrimitve {
+extension String: UserDefaultsPrimitive {
     
 }
 
-extension UInt8: UserDefaultsPrimitve {
+extension UInt: UserDefaultsPrimitive {
     
 }
 
-extension UInt16: UserDefaultsPrimitve {
+extension UInt8: UserDefaultsPrimitive {
     
 }
 
-extension UInt32: UserDefaultsPrimitve {
+extension UInt16: UserDefaultsPrimitive {
     
 }
 
-extension UInt64: UserDefaultsPrimitve {
+extension UInt32: UserDefaultsPrimitive {
+    
+}
+
+extension UInt64: UserDefaultsPrimitive {
     
 }

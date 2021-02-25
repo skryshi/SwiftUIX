@@ -60,7 +60,7 @@ struct _PaginationView<Page: View> {
     }
 }
 
-// MARK: - Protocol Implementations -
+// MARK: - Protocol Conformances -
 
 extension _PaginationView: UIViewControllerRepresentable {
     @usableFromInline
@@ -74,6 +74,10 @@ extension _PaginationView: UIViewControllerRepresentable {
             options: interPageSpacing.map({ [.interPageSpacing: $0 as NSNumber] })
         )
         
+        #if os(tvOS)
+        uiViewController.view.backgroundColor = UIColor.clear
+        #endif
+        
         uiViewController.content = content
         
         uiViewController.dataSource = .some(context.coordinator as! UIPageViewControllerDataSource)
@@ -83,18 +87,18 @@ extension _PaginationView: UIViewControllerRepresentable {
             return uiViewController
         }
         
-        if let initialPageIndex = initialPageIndex {
-            currentPageIndex = initialPageIndex
+        if initialPageIndex == nil {
+            uiViewController.isInitialPageIndexApplied = true
         }
         
-        if content.data.indices.contains(content.data.index(content.data.startIndex, offsetBy: currentPageIndex)) {
+        if content.data.indices.contains(content.data.index(content.data.startIndex, offsetBy: initialPageIndex ?? currentPageIndex)) {
             let firstIndex = content.data.index(content.data.startIndex, offsetBy: initialPageIndex ?? currentPageIndex)
             
             if let firstViewController = uiViewController.viewController(for: firstIndex) {
                 uiViewController.setViewControllers(
                     [firstViewController],
                     direction: .forward,
-                    animated: true
+                    animated: context.transaction.isAnimated
                 )
             }
         } else {
@@ -105,10 +109,10 @@ extension _PaginationView: UIViewControllerRepresentable {
                     uiViewController.setViewControllers(
                         [firstViewController],
                         direction: .forward,
-                        animated: true
+                        animated: context.transaction.isAnimated
                     )
                 }
-
+                
                 currentPageIndex = 0
             }
         }
@@ -120,8 +124,24 @@ extension _PaginationView: UIViewControllerRepresentable {
     
     @usableFromInline
     func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
+        defer {
+            uiViewController._isAnimated = true
+        }
+        
+        uiViewController._isAnimated = context.transaction.isAnimated
         uiViewController.content = content
-        uiViewController.currentPageIndex = content.data.index(content.data.startIndex, offsetBy: self.currentPageIndex)
+        
+        if let initialPageIndex = initialPageIndex, !uiViewController.isInitialPageIndexApplied {
+            DispatchQueue.main.async {
+                uiViewController.isInitialPageIndexApplied = true
+                
+                currentPageIndex = initialPageIndex
+            }
+            
+            uiViewController.currentPageIndex = content.data.index(content.data.startIndex, offsetBy: initialPageIndex)
+        } else {
+            uiViewController.currentPageIndex = content.data.index(content.data.startIndex, offsetBy: self.currentPageIndex)
+        }
         
         if uiViewController.pageControl?.currentPage != currentPageIndex {
             uiViewController.pageControl?.currentPage = currentPageIndex
@@ -132,6 +152,13 @@ extension _PaginationView: UIViewControllerRepresentable {
         uiViewController.isPanGestureEnabled = context.environment.isPanGestureEnabled
         uiViewController.isScrollEnabled = context.environment.isScrollEnabled
         uiViewController.isTapGestureEnabled = context.environment.isTapGestureEnabled
+        
+        if #available(iOS 14.0, tvOS 14.0, *) {
+            if let backgroundStyle = context.environment.pageControlBackgroundStyle {
+                uiViewController.pageControl?.backgroundStyle = backgroundStyle
+            }
+        }
+        
         uiViewController.pageControl?.currentPageIndicatorTintColor = context.environment.currentPageIndicatorTintColor?.toUIColor()
         uiViewController.pageControl?.pageIndicatorTintColor = context.environment.pageIndicatorTintColor?.toUIColor()
     }
@@ -190,7 +217,7 @@ extension _PaginationView {
             
             return pageViewController.viewController(after: viewController)
         }
-
+        
         @usableFromInline
         @objc(pageViewController:didFinishAnimating:previousViewControllers:transitionCompleted:)
         func pageViewController(
@@ -236,7 +263,7 @@ extension _PaginationView {
                 
                 return 0
             }
-
+            
             return pageViewController.currentPageIndexOffset ?? 0
         }
     }

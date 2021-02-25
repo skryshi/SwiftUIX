@@ -7,39 +7,70 @@ import Dispatch
 import Swift
 import SwiftUI
 
+/// A property wrapper type that can maintain a timed counter.
 @propertyWrapper
 public struct TimerState: DynamicProperty {
+    private class ValueBox: ObservableObject {
+        @Published var value: Int
+        
+        init(_ value: Int) {
+            self.value = value
+        }
+    }
+    
+    private let animation: Animation?
     private let interval: TimeInterval
-    private let timerPublisher: Timer.TimerPublisher
+    private let maxCount: Int?
     
-    @State var timerConnection: Cancellable?
-    @State var timerSubscription: AnyCancellable? = nil
+    @State private var state = ReferenceBox<(publisher: Timer.TimerPublisher, connection: Cancellable, subscription: Cancellable)?>(nil)
+    @PersistentObject private var valueBox: ValueBox
     
-    private var updateWrappedValue = ReferenceBox<() -> Void>({ })
-    
-    @State public private(set) var wrappedValue: Int = 0
+    public var wrappedValue: Int {
+        valueBox.value
+    }
     
     /// - Parameters:
-    ///   - interval: The time interval on which to publish events. For example, a value of `0.5` publishes an event approximately every half-second.
-    public init(interval: TimeInterval) {
+    ///   - wrappedValue: The initial value for the counter.
+    ///   - interval: The time interval on which to increment the counter. For example, a value of `0.5` increments the counter approximately every half-second.
+    ///   - maxCount: The count at which to stop the timer.
+    ///   - animation: The animation used when incrementing the counter.
+    public init(
+        wrappedValue: Int = 0,
+        interval: TimeInterval,
+        maxCount: Int? = nil,
+        animation: Animation? = nil
+    ) {
+        self._valueBox = .init(wrappedValue: ValueBox(wrappedValue))
         self.interval = interval
-        self.timerPublisher = Timer.publish(every: interval, on: .main, in: .common)
-        self.timerSubscription = nil
-        
-        let updateWrappedValue = self.updateWrappedValue
-        
-        self._timerSubscription = .init(initialValue: timerPublisher.sink(receiveValue: { _ in
-            updateWrappedValue.value()
-        }))
+        self.maxCount = maxCount
+        self.animation = animation
     }
     
     public mutating func update() {
-        let _wrappedValue = self._wrappedValue
-        
-        updateWrappedValue.value = { _wrappedValue.wrappedValue += 1 }
-        
-        if timerConnection == nil {
-            _timerConnection = .init(initialValue: timerPublisher.connect())
+        if state.value == nil {
+            let maxCount = self.maxCount
+            let animation = self.animation
+            let valueBox = self.valueBox
+            
+            let timerPublisher = Timer.publish(every: interval, on: .main, in: .common)
+            let connection = timerPublisher.connect()
+            var timerSubscription: Cancellable!
+            
+            if let maxCount = maxCount {
+                timerSubscription = timerPublisher.prefix(maxCount).sink { _ in
+                    withAnimation(animation) {
+                        valueBox.value += 1
+                    }
+                }
+            } else {
+                timerSubscription = timerPublisher.sink { _ in
+                    withAnimation(animation) {
+                        valueBox.value += 1
+                    }
+                }
+            }
+            
+            state.value = (timerPublisher, connection, timerSubscription)
         }
     }
 }

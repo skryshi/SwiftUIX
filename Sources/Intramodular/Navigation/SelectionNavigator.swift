@@ -7,7 +7,7 @@ import Swift
 import SwiftUI
 
 /// A utility view modifier that allows for dynamic navigation based on some arbitrary selection value.
-fileprivate struct SelectionNavigator<Selection, Destination: View>: ViewModifier {
+fileprivate struct SelectionNavigator<Selection: Identifiable, Destination: View>: ViewModifier {
     private let selection: Binding<Selection?>
     private let destination: (Selection) -> Destination
     private let onDismiss: (() -> Void)?
@@ -41,15 +41,30 @@ fileprivate struct SelectionNavigator<Selection, Destination: View>: ViewModifie
     }
     
     public func body(content: Content) -> some View {
-        content.background(
-            NavigationLink(
-                destination: LazyView {
-                    self.destination(self.selection.wrappedValue!)
-                },
-                isActive: isActive,
-                label: { ZeroSizeView() }
-            )
+        #if !os(watchOS)
+        return content.background(
+            selection.wrappedValue.ifSome { selection in
+                NavigationLink(
+                    destination: self.destination(selection)
+                        .modifier(_SetAppKitOrUIKitViewControllerEnvironmentValue()),
+                    isActive: isActive,
+                    label: { ZeroSizeView() }
+                )
+                .id(selection.id)
+            }
         )
+        #else
+        return content.background(
+            selection.wrappedValue.ifSome { selection in
+                NavigationLink(
+                    destination: self.destination(selection),
+                    isActive: isActive,
+                    label: { ZeroSizeView() }
+                )
+                .id(selection.id)
+            }
+        )
+        #endif
     }
 }
 
@@ -99,8 +114,7 @@ extension View {
 }
 
 extension View {
-    @available(*, deprecated, message: "This implementation is unreliable.")
-    public func navigate<Selection, Destination: View>(
+    public func navigate<Selection: Identifiable, Destination: View>(
         selection: Binding<Selection?>,
         onDismiss: (() -> ())? = nil,
         @ViewBuilder destination: @escaping (Selection) -> Destination

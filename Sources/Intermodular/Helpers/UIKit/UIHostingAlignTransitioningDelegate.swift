@@ -68,7 +68,7 @@ class UIHostingAlignTransitioningDelegate<Background: View, Content: View>: UIHo
     }
 }
 
-// MARK: - Helpers -
+// MARK: - API -
 
 extension ModalPresentationStyle {
     public static func align(
@@ -80,7 +80,7 @@ extension ModalPresentationStyle {
                 background: DefaultPresentationBackdrop(),
                 source: source,
                 destination: destination,
-                contentType: EnvironmentalAnyView.self
+                contentType: AnyPresentationView.self
             )
         )
     }

@@ -17,7 +17,7 @@ public struct CocoaScrollViewConfiguration<Content: View> {
     @usableFromInline
     var showsIndicators: Bool = true
     @usableFromInline
-    var alwaysBounceVertical: Bool = false
+    var alwaysBounceVertical: Bool? = nil
     @usableFromInline
     var alwaysBounceHorizontal: Bool = false
     @usableFromInline
@@ -32,6 +32,8 @@ public struct CocoaScrollViewConfiguration<Content: View> {
     var onRefresh: (() -> Void)?
     @usableFromInline
     var isRefreshing: Bool?
+    @usableFromInline
+    var refreshControlTintColor: UIColor?
     
     @available(tvOS, unavailable)
     @usableFromInline
@@ -39,6 +41,9 @@ public struct CocoaScrollViewConfiguration<Content: View> {
     
     @usableFromInline
     var contentOffset: Binding<CGPoint>? = nil
+    
+    @usableFromInline
+    var contentInset: UIEdgeInsets = .zero
 }
 
 extension CocoaScrollViewConfiguration {
@@ -55,6 +60,8 @@ extension CocoaScrollViewConfiguration {
         return result
     }
 }
+
+// MARK: - Auxiliary Implementation -
 
 #if !os(tvOS)
 
@@ -76,12 +83,16 @@ extension UIScrollView {
     func configure<Content: View>(
         with configuration: CocoaScrollViewConfiguration<Content>
     ) {
-        alwaysBounceVertical = configuration.alwaysBounceVertical
+        if let alwaysBounceVertical = configuration.alwaysBounceVertical {
+            self.alwaysBounceVertical = alwaysBounceVertical
+        }
+        
         alwaysBounceHorizontal = configuration.alwaysBounceHorizontal
         isDirectionalLockEnabled = configuration.isDirectionalLockEnabled
         isScrollEnabled = configuration.isScrollEnabled
         showsVerticalScrollIndicator = configuration.showsIndicators
         showsHorizontalScrollIndicator = configuration.showsIndicators
+        contentInset = configuration.contentInset
         
         #if os(iOS) || targetEnvironment(macCatalyst)
         isPagingEnabled = configuration.isPagingEnabled
@@ -94,7 +105,9 @@ extension UIScrollView {
                 
                 self.refreshControl = $0
             }
-            
+
+            refreshControl.tintColor = configuration.refreshControlTintColor
+
             if let isRefreshing = configuration.isRefreshing, refreshControl.isRefreshing != isRefreshing {
                 if isRefreshing {
                     refreshControl.beginRefreshing()
@@ -109,6 +122,20 @@ extension UIScrollView {
             if self.contentOffset.ceil != contentOffset.ceil {
                 setContentOffset(contentOffset, animated: true)
             }
+        }
+    }
+}
+
+extension EnvironmentValues {
+    struct _ScrollViewConfiguration: EnvironmentKey {
+        static let defaultValue = CocoaScrollViewConfiguration<AnyView>()
+    }
+    
+    var _scrollViewConfiguration: CocoaScrollViewConfiguration<AnyView> {
+        get {
+            self[_ScrollViewConfiguration]
+        } set {
+            self[_ScrollViewConfiguration] = newValue
         }
     }
 }

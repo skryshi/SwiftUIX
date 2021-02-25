@@ -42,6 +42,14 @@ public struct CocoaScrollView<Content: View>: UIViewRepresentable  {
 // MARK: - API -
 
 extension CocoaScrollView {
+    public func alwaysBounceVertical(_ alwaysBounceVertical: Bool) -> Self {
+        then({ $0.configuration.alwaysBounceVertical = alwaysBounceVertical })
+    }
+    
+    public func alwaysBounceHorizontal(_ alwaysBounceHorizontal: Bool) -> Self {
+        then({ $0.configuration.alwaysBounceHorizontal = alwaysBounceHorizontal })
+    }
+    
     public func isPagingEnabled(_ enabled: Bool) -> Self {
         then({ $0.configuration.isPagingEnabled = enabled })
     }
@@ -53,6 +61,36 @@ extension CocoaScrollView {
     public func contentOffset(_ contentOffset: Binding<CGPoint>) -> Self {
         then({ $0.configuration.contentOffset = contentOffset })
     }
+    
+    public func contentInset(_ contentInset: UIEdgeInsets) -> Self {
+        then({ $0.configuration.contentInset = contentInset })
+    }
+    
+    public func contentInset(_ contentInset: EdgeInsets) -> Self {
+        self.contentInset(.init(
+            top: contentInset.top,
+            left: contentInset.leading,
+            bottom: contentInset.bottom,
+            right: contentInset.trailing
+        ))
+    }
+    
+    public func contentInset(_ edges: Edge.Set = .all, _ length: CGFloat = 0) -> Self {
+        var contentInset = self.configuration.contentInset
+        if edges.contains(.top) {
+            contentInset.top += length
+        }
+        if edges.contains(.leading) {
+            contentInset.left += length
+        }
+        if edges.contains(.bottom) {
+            contentInset.bottom += length
+        }
+        if edges.contains(.trailing) {
+            contentInset.right += length
+        }
+        return self.contentInset(contentInset)
+    }
 }
 
 @available(tvOS, unavailable)
@@ -63,6 +101,10 @@ extension CocoaScrollView {
     
     public func isRefreshing(_ isRefreshing: Bool) -> Self {
         then({ $0.configuration.isRefreshing = isRefreshing })
+    }
+
+    public func refreshControlTintColor(_ color: UIColor?) -> Self {
+        then({ $0.configuration.refreshControlTintColor = color })
     }
 }
 

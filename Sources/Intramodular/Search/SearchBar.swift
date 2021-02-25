@@ -5,9 +5,18 @@
 import Swift
 import SwiftUI
 
+#if os(iOS) || os(macOS) || targetEnvironment(macCatalyst)
+
 /// A specialized view for receiving search-related information from the user.
-public struct SearchBar {
+public struct SearchBar: DefaultTextInputType {
     @Binding fileprivate var text: String
+    
+    #if os(iOS) || targetEnvironment(macCatalyst)
+    @available(macCatalystApplicationExtension, unavailable)
+    @available(iOSApplicationExtension, unavailable)
+    @available(tvOSApplicationExtension, unavailable)
+    @ObservedObject private var keyboard = Keyboard.main
+    #endif
     
     private let onEditingChanged: (Bool) -> Void
     private let onCommit: () -> Void
@@ -20,6 +29,26 @@ public struct SearchBar {
     
     private var showsCancelButton: Bool = false
     private var onCancel: () -> Void = { }
+    
+    #if os(iOS) || targetEnvironment(macCatalyst)
+    private var returnKeyType: UIReturnKeyType?
+    private var enablesReturnKeyAutomatically: Bool?
+    private var isSecureTextEntry: Bool = false
+    private var textContentType: UITextContentType? = nil
+    private var keyboardType: UIKeyboardType?
+    #endif
+    
+    public init<S: StringProtocol>(
+        _ title: S,
+        text: Binding<String>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onCommit: @escaping () -> Void = { }
+    ) {
+        self.placeholder = String(title)
+        self._text = text
+        self.onCommit = onCommit
+        self.onEditingChanged = onEditingChanged
+    }
     
     public init(
         text: Binding<String>,
@@ -34,6 +63,9 @@ public struct SearchBar {
 
 #if os(iOS) || targetEnvironment(macCatalyst)
 
+@available(macCatalystApplicationExtension, unavailable)
+@available(iOSApplicationExtension, unavailable)
+@available(tvOSApplicationExtension, unavailable)
 extension SearchBar: UIViewRepresentable {
     public typealias UIViewType = UISearchBar
     
@@ -58,6 +90,18 @@ extension SearchBar: UIViewRepresentable {
         uiView.tintColor = context.environment.tintColor?.toUIColor()
         
         uiView.setShowsCancelButton(showsCancelButton, animated: true)
+        
+        if let returnKeyType = returnKeyType {
+            uiView.returnKeyType = returnKeyType
+        }
+        
+        if let keyboardType = keyboardType {
+            uiView.keyboardType = keyboardType
+        }
+        
+        if let enablesReturnKeyAutomatically = enablesReturnKeyAutomatically {
+            uiView.enablesReturnKeyAutomatically = enablesReturnKeyAutomatically
+        }
     }
     
     public class Coordinator: NSObject, UISearchBarDelegate {
@@ -80,10 +124,14 @@ extension SearchBar: UIViewRepresentable {
         }
         
         public func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+            searchBar.endEditing(true)
+            
             base.onCancel()
         }
         
         public func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+            searchBar.endEditing(true)
+            
             base.onCommit()
         }
     }
@@ -95,6 +143,9 @@ extension SearchBar: UIViewRepresentable {
 
 #elseif os(macOS)
 
+@available(macCatalystApplicationExtension, unavailable)
+@available(iOSApplicationExtension, unavailable)
+@available(tvOSApplicationExtension, unavailable)
 extension SearchBar: NSViewRepresentable {
     public typealias NSViewType = NSSearchField
     
@@ -159,6 +210,9 @@ extension SearchBar: NSViewRepresentable {
 
 // MARK: - API -
 
+@available(macCatalystApplicationExtension, unavailable)
+@available(iOSApplicationExtension, unavailable)
+@available(tvOSApplicationExtension, unavailable)
 extension SearchBar {
     #if os(iOS) || os(macOS) || targetEnvironment(macCatalyst)
     public func placeholder(_ placeholder: String) -> Self {
@@ -178,5 +232,42 @@ extension SearchBar {
     public func onCancel(perform action: @escaping () -> Void) -> Self {
         then({ $0.onCancel = action })
     }
+    
+    public func returnKeyType(_ returnKeyType: UIReturnKeyType) -> Self {
+        then({ $0.returnKeyType = returnKeyType })
+    }
+    
+    public func enablesReturnKeyAutomatically(_ enablesReturnKeyAutomatically: Bool) -> Self {
+        then({ $0.enablesReturnKeyAutomatically = enablesReturnKeyAutomatically })
+    }
+    
+    public func isSecureTextEntry(_ isSecureTextEntry: Bool) -> Self {
+        then({ $0.isSecureTextEntry = isSecureTextEntry })
+    }
+    
+    public func textContentType(_ textContentType: UITextContentType?) -> Self {
+        then({ $0.textContentType = textContentType })
+    }
+    
+    public func keyboardType(_ keyboardType: UIKeyboardType) -> Self {
+        then({ $0.keyboardType = keyboardType })
+    }
     #endif
 }
+
+// MARK: - Auxiliary Implementation -
+
+#if os(iOS) || targetEnvironment(macCatalyst)
+
+extension UISearchBar {
+    /// Retrieves the UITextField contained inside the UISearchBar.
+    ///
+    /// - Returns: the UITextField inside the UISearchBar
+    func _retrieveTextField() -> UITextField? {
+        findSubview(ofKind: UITextField.self)
+    }
+}
+
+#endif
+
+#endif

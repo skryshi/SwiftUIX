@@ -5,8 +5,6 @@
 import Swift
 import SwiftUI
 
-#if (os(iOS) || os(watchOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
-
 @available(iOS 14.0, OSX 10.16, tvOS 14.0, watchOS 7.0, *)
 extension Label where Title == Text {
     /// Creates a label with a system icon image and a title generated from a
@@ -29,16 +27,14 @@ extension Label where Title == Text, Icon == Image {
     /// Creates a label with a system icon image and a title generated from a
     /// localized string.
     @available(iOS 14.0, OSX 10.16, tvOS 14.0, watchOS 7.0, *)
-    public init(_ titleKey: LocalizedStringKey, systemImage name: SanFranciscoSymbolName) {
+    public init(_ titleKey: LocalizedStringKey, systemImage name: SFSymbolName) {
         self.init(titleKey, systemImage: name.rawValue)
     }
     
     /// Creates a label with a system icon image and a title generated from a
     /// string.
     @available(iOS 14.0, OSX 10.16, tvOS 14.0, watchOS 7.0, *)
-    public init<S: StringProtocol>(_ title: S, systemImage name: SanFranciscoSymbolName) {
+    public init<S: StringProtocol>(_ title: S, systemImage name: SFSymbolName) {
         self.init(title, systemImage: name.rawValue)
     }
 }
-
-#endif

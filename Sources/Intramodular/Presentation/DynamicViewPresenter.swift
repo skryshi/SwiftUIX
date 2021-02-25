@@ -151,25 +151,20 @@ private struct DynamicViewPresenterEnvironmentKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    @available(*, deprecated, message: "Use EnvironmentValues.presenter instead.")
-    public var dynamicViewPresenter: DynamicViewPresenter? {
-        get {
-            self[DynamicViewPresenterEnvironmentKey.self]
-        } set {
-            self[DynamicViewPresenterEnvironmentKey.self] = newValue
-        }
-    }
-    
     public var presenter: DynamicViewPresenter? {
         get {
-            self[DynamicViewPresenterEnvironmentKey.self]
+            #if os(iOS) || os(tvOS) || os(macOS) || targetEnvironment(macCatalyst)
+            return self[DynamicViewPresenterEnvironmentKey.self] ?? _appKitOrUIKitViewController
+            #else
+            return self[DynamicViewPresenterEnvironmentKey.self]
+            #endif
         } set {
             self[DynamicViewPresenterEnvironmentKey.self] = newValue
         }
     }
 }
 
-// MARK: - Concrete Implementations -
+// MARK: - Conformances -
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
@@ -206,7 +201,7 @@ extension UIViewController: DynamicViewPresenter {
         
         if presentingViewController != nil {
             return .init { attemptToFulfill in
-                self.dismiss(animated: animation == nil) {
+                self.dismiss(animated: animation != nil) {
                     attemptToFulfill(.success(true))
                 }
             }

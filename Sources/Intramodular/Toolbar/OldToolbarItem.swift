@@ -20,7 +20,7 @@ import UIKit
 public struct OldToolbarItem {
     public enum Content {
         #if os(iOS) || targetEnvironment(macCatalyst)
-        case systemSymbol(SanFranciscoSymbolName)
+        case systemSymbol(SFSymbolName)
         case systemItem(UIBarButtonItem.SystemItem)
         #endif
         
@@ -118,7 +118,7 @@ extension OldToolbarItem {
     #endif
 }
 
-// MARK: - Protocol Implementations -
+// MARK: - Protocol Conformances -
 
 extension OldToolbarItem: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {

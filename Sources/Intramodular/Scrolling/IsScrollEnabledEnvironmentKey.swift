@@ -4,11 +4,11 @@
 
 import SwiftUI
 
-struct IsScrollEnabledEnvironmentKey: EnvironmentKey {
-    static let defaultValue = true
-}
-
 extension EnvironmentValues {
+    private struct IsScrollEnabledEnvironmentKey: EnvironmentKey {
+        static let defaultValue = true
+    }
+    
     public var isScrollEnabled: Bool {
         get {
             self[IsScrollEnabledEnvironmentKey]
@@ -21,6 +21,7 @@ extension EnvironmentValues {
 // MARK: - API -
 
 extension View {
+    /// Adds a condition that controls whether users can scroll within this view.
     public func isScrollEnabled(_ isEnabled: Bool) -> some View {
         environment(\.isScrollEnabled, isEnabled)
     }

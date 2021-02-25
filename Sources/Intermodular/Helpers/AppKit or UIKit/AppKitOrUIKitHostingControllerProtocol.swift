@@ -13,7 +13,7 @@ public protocol AppKitOrUIKitHostingControllerProtocol: AppKitOrUIKitViewControl
 
 #endif
 
-// MARK: - Concrete Implementations -
+// MARK: - Conformances -
 
 #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
@@ -32,42 +32,59 @@ extension NSHostingController: AppKitOrUIKitHostingControllerProtocol {
 #if os(iOS) || os(macOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
 extension AppKitOrUIKitHostingControllerProtocol {
-    func sizeThatFits(
+    func _fixed_sizeThatFits(
         in size: OptionalDimensions,
-        targetSize: OptionalDimensions,
-        maximumSize: OptionalDimensions
+        targetSize: OptionalDimensions = nil,
+        maximumSize: OptionalDimensions = nil
     ) -> CGSize {
         let fittingSize = CGSize(
-            width: size.width ?? .infinity,
-            height: size.height ?? .infinity
-        ).clamping(to: maximumSize)
+            width: size.width ?? .greatestFiniteMagnitude,
+            height: size.height ?? .greatestFiniteMagnitude
+        )
+        .clamping(to: maximumSize)
         
-        var desiredSize = sizeThatFits(in: fittingSize)
+        #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        #elseif os(macOS)
+        view.layout()
+        #endif
         
-        switch (desiredSize.width, desiredSize.height)  {
-            case (.infinity, .infinity):
-                desiredSize = sizeThatFits(in: .init(size, default: .zero))
-            case (.infinity, _):
-                desiredSize = sizeThatFits(in: CGSize(width: size.width ?? targetSize.width ?? .zero, height: fittingSize.height))
-            case (_, .infinity):
-                desiredSize = sizeThatFits(in: CGSize(width: fittingSize.width, height: size.height ?? targetSize.height ?? .zero))
+        var result = sizeThatFits(in: fittingSize)
+        
+        switch (result.width, result.height)  {
+            case (.greatestFiniteMagnitude, .greatestFiniteMagnitude):
+                result = sizeThatFits(in: .init(size, default: .zero))
+            case (.greatestFiniteMagnitude, _):
+                result = sizeThatFits(in: CGSize(width: size.width ?? targetSize.width ?? .zero, height: fittingSize.height))
+            case (_, .greatestFiniteMagnitude):
+                result = sizeThatFits(in: CGSize(width: fittingSize.width, height: size.height ?? targetSize.height ?? .zero))
+            case (.zero, 1...): do {
+                #if os(iOS) || os(tvOS)
+                result = sizeThatFits(in: CGSize(width: UIView.layoutFittingExpandedSize.width, height: fittingSize.height))
+                #endif
+            }
             default:
                 break
         }
         
         if size.width == nil {
             if let targetWidth = targetSize.width {
-                desiredSize.width = targetWidth
+                result.width = targetWidth
             }
         }
         
         if size.height == nil {
             if let targetHeight = targetSize.height {
-                desiredSize.height = targetHeight
+                result.height = targetHeight
             }
         }
         
-        return desiredSize.clamping(to: maximumSize)
+        return result.clamping(to: maximumSize)
+    }
+    
+    func _fixed_sizeThatFits(in size: CGSize) -> CGSize {
+        _fixed_sizeThatFits(in: .init(size))
     }
 }
 

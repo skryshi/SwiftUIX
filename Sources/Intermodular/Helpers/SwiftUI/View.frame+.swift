@@ -56,27 +56,64 @@ extension View {
     }
 }
 
-extension View {
-    /// Causes the view to greedily fill into its container.
-    @inlinable
-    public func greedyFrame(alignment: Alignment = .center) -> some View {
-        frame(idealWidth: .infinity, maxWidth: .infinity)
-    }
-    
-    /// Causes the view to greedily fill into its container.
-    @inlinable
-    public func greedyFrame(_ axis: Axis, alignment: Alignment = .center) -> some View {
-        switch axis {
-            case .horizontal:
-                return frame(idealWidth: .infinity, maxWidth: .infinity)
-            case .vertical:
-                return frame(idealHeight: .infinity, maxHeight: .infinity)
-        }
-    }
+public enum _GreedyFrameSize {
+    case greedy
 }
 
 extension View {
     /// Causes the view to greedily fill into its container.
+    @inlinable
+    public func frame(
+        _ size: _GreedyFrameSize,
+        alignment: Alignment = .center
+    ) -> some View {
+        frame(
+            idealWidth: .infinity,
+            maxWidth: .infinity,
+            idealHeight: .infinity,
+            maxHeight: .infinity,
+            alignment: alignment
+        )
+    }
+    
+    @inlinable
+    public func frame(
+        width: _GreedyFrameSize,
+        alignment: Alignment = .center
+    ) -> some View {
+        frame(idealWidth: .infinity, maxWidth: .infinity, alignment: alignment)
+    }
+    
+    @inlinable
+    public func frame(
+        height: _GreedyFrameSize,
+        alignment: Alignment = .center
+    ) -> some View {
+        frame(idealHeight: .infinity, maxHeight: .infinity, alignment: alignment)
+    }
+    
+    @inlinable
+    public func frame(
+        _ size: _GreedyFrameSize,
+        _ axis: Axis,
+        alignment: Alignment = .center
+    ) -> some View {
+        switch axis {
+            case .horizontal:
+                return frame(idealWidth: .infinity, maxWidth: .infinity, alignment: alignment)
+            case .vertical:
+                return frame(idealHeight: .infinity, maxHeight: .infinity, alignment: alignment)
+        }
+    }
+    
+    @available(*, message: "greedyFrame() is deprecated, use frame(.greedy) instead")
+    public func greedyFrame(alignment: Alignment = .center) -> some View {
+        frame(.greedy)
+    }
+}
+
+extension View {
+    /// Causes the view to greedily fill to fit into its container.
     @inlinable
     public func fit() -> some View {
         GeometryReader { geometry in

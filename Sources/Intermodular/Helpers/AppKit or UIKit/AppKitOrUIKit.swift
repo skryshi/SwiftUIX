@@ -110,3 +110,67 @@ public let NSAlert_Type = unsafeBitCast(NSClassFromString("NSAlert"), to: NSAler
 public let NSOpenPanel_Type = unsafeBitCast(NSClassFromString("NSOpenPanel"), to: NSOpenPanelProtocol.Type.self)
 
 #endif
+
+#if os(iOS) || os(tvOS) || os(macOS) || targetEnvironment(macCatalyst)
+
+extension EnvironmentValues {
+    public var _appKitOrUIKitViewController: AppKitOrUIKitViewController? {
+        get {
+            self[DefaultEnvironmentKey<AppKitOrUIKitViewController>]
+        } set {
+            self[DefaultEnvironmentKey<AppKitOrUIKitViewController>] = newValue
+        }
+    }
+}
+
+struct _SetAppKitOrUIKitViewControllerEnvironmentValue: ViewModifier {
+    @State var _appKitOrUIKitViewController: AppKitOrUIKitViewController?
+    
+    func body(content: Content) -> some View {
+        #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
+        return content
+            .environment(\._appKitOrUIKitViewController, _appKitOrUIKitViewController)
+            .environment(\.navigator, _appKitOrUIKitViewController?.navigationController)
+            .onUIViewControllerResolution {
+                if !(self._appKitOrUIKitViewController === $0) {
+                    self._appKitOrUIKitViewController = $0
+                }
+            }
+        #else
+        return content
+        #endif
+    }
+}
+
+public struct AppKitOrUIKitViewControllerAdaptor<AppKitOrUIKitViewControllerType: AppKitOrUIKitViewController>: AppKitOrUIKitViewControllerRepresentable {
+    #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
+    public typealias UIViewControllerType = AppKitOrUIKitViewControllerType
+    #elseif os(macOS)
+    public typealias NSViewControllerType = AppKitOrUIKitViewControllerType
+    #endif
+    
+    private let makeAppKitOrUIKitViewControllerImpl: (Context) -> AppKitOrUIKitViewControllerType
+    private let updateAppKitOrUIKitViewControllerImpl: (AppKitOrUIKitViewControllerType, Context) -> ()
+    
+    public init(
+        _ makeAppKitOrUIKitViewController: @autoclosure @escaping () -> AppKitOrUIKitViewControllerType
+    ) {
+        self.makeAppKitOrUIKitViewControllerImpl = { _ in makeAppKitOrUIKitViewController() }
+        self.updateAppKitOrUIKitViewControllerImpl = { _, _ in }
+    }
+    
+    public func makeAppKitOrUIKitViewController(
+        context: Context
+    ) -> AppKitOrUIKitViewControllerType {
+        makeAppKitOrUIKitViewControllerImpl(context)
+    }
+    
+    public func updateAppKitOrUIKitViewController(
+        _ uiViewController: AppKitOrUIKitViewControllerType,
+        context: Context
+    ) {
+        updateAppKitOrUIKitViewControllerImpl(uiViewController, context)
+    }
+}
+
+#endif

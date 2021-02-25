@@ -8,11 +8,12 @@ import SwiftUI
 #if os(iOS) || os(macOS) || os(tvOS) || targetEnvironment(macCatalyst)
 
 public protocol _opaque_CocoaController: AppKitOrUIKitViewController {
-    
+    func _namedViewDescription(for _: ViewName) -> _NamedViewDescription?
+    func _setNamedViewDescription(_: _NamedViewDescription?, for _: ViewName)
 }
 
 public protocol CocoaController: _opaque_CocoaController {
-    func description(for _: ViewName) -> ViewDescription?
+    
 }
 
 #endif

@@ -18,16 +18,16 @@ open class UIHostingWindow<Content: View>: UIWindow, UIHostingWindowProtocol {
     
     public var rootView: Content {
         get {
-            rootHostingViewController.rootViewContent.content
+            rootHostingViewController.rootView.content.content
         } set {
-            rootHostingViewController.rootViewContent.content = newValue
+            rootHostingViewController.rootView.content.content = newValue
         }
     }
     
     public init(windowScene: UIWindowScene, rootView: Content) {
         super.init(windowScene: windowScene)
         
-        rootViewController = CocoaHostingController(rootView: UIHostingWindowContent(parent: self, content: rootView))
+        rootViewController = CocoaHostingController(mainView: UIHostingWindowContent(window: self, content: rootView))
         rootViewController!.view.backgroundColor = .clear
     }
     
@@ -46,10 +46,16 @@ open class UIHostingWindow<Content: View>: UIWindow, UIHostingWindowProtocol {
 // MARK: - API -
 
 extension View {
-    public func windowPosition(_ position: CGPoint) -> some View {
-        preference(key: WindowPostionPreferenceKey.self, value: position)
+    /// Positions the top-leading corner of this window at the specified coordinates in the screen's coordinate space.
+    ///
+    /// Use the `windowPosition(x:y:)` modifier to place the top-leading corner of a window at a specific coordinate in the screen using `offset`.
+    public func windowPosition(_ offset: CGPoint) -> some View {
+        preference(key: WindowPositionPreferenceKey.self, value: offset)
     }
     
+    /// Positions the top-leading corner of this window at the specified coordinates in the screen's coordinate space.
+    ///
+    /// Use the `windowPosition(x:y:)` modifier to place the top-leading corner of a window at a specific coordinate in the screen using an `x` and `y` offset.
     public func windowPosition(x: CGFloat, y: CGFloat) -> some View {
         windowPosition(.init(x: x, y: y))
     }
@@ -58,21 +64,49 @@ extension View {
 // MARK: - Auxiliary Implementation -
 
 @usableFromInline
-final class WindowPostionPreferenceKey: TakeLastPreferenceKey<CGPoint> {
+final class WindowPositionPreferenceKey: TakeLastPreferenceKey<CGPoint> {
     
 }
 
 public struct UIHostingWindowContent<Content: View>: View {
     @usableFromInline
-    weak private(set) var parent: UIWindow?
+    weak private(set) var window: UIWindow?
     
     @usableFromInline
     fileprivate(set) var content: Content
     
     @inlinable
     public var body: some View {
-        content.onPreferenceChange(WindowPostionPreferenceKey.self) {
-            self.parent?.frame.origin = ($0 ?? CGPoint.zero)
+        content.onPreferenceChange(WindowPositionPreferenceKey.self) { value in
+            if let window = self.window, let value = value {
+                if window.frame.origin != value {
+                    UIView.animate(withDuration: 0.2) {
+                        window.frame.origin = value
+                    }
+                }
+            }
+        }
+        .environment(\.presentationManager, _PresentationManager(window: window))
+    }
+    
+    @usableFromInline
+    struct _PresentationManager: PresentationManager {
+        @usableFromInline
+        let window: UIWindow?
+        
+        @usableFromInline
+        init(window: UIWindow?) {
+            self.window = window
+        }
+        
+        @usableFromInline
+        var isPresented: Bool {
+            window?.isHidden == false
+        }
+        
+        @usableFromInline
+        func dismiss() {
+            window?.isHidden = true
         }
     }
 }
